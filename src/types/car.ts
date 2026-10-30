@@ -18,6 +18,18 @@ export interface CarSpecs {
   acceleration0to100?: string;
 }
 
+export interface CarGalleryItem {
+  label: string;
+  url: string;
+}
+
+export interface TelematicsStatus {
+  fuelOrBatteryPercent: number;
+  sanitizedTimeAgo: string;
+  keylessReady: boolean;
+  fastagActive: boolean;
+}
+
 export interface Car {
   id: string;
   slug: string;
@@ -34,11 +46,13 @@ export interface Car {
   monthlyPriceINR: number;
   hubLocation: string;
   image: string;
+  gallery?: CarGalleryItem[];
   description: string;
   specs: CarSpecs;
   features: string[];
   isAvailableDemo: boolean;
   agentAssigned: string;
+  telematicsStatus?: TelematicsStatus;
 }
 
 export interface CarFiltersState {

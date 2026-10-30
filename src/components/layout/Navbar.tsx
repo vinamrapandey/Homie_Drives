@@ -20,22 +20,22 @@ export const Navbar: React.FC = () => {
   ];
 
   return (
-    <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-[#E1E8DF]">
+    <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-[#E1E8DF]/70 shadow-[0_2px_12px_rgba(23,32,22,0.03)] transition-all">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-        {/* Brand */}
+        {/* Brand Logo */}
         <Logo size="md" />
 
-        {/* Delhi NCR Location Selector */}
+        {/* Delhi NCR Location Selector with Frosted Glass */}
         <div className="relative">
           <button
             type="button"
             onClick={() => setIsLocationDropdownOpen(!isLocationDropdownOpen)}
-            className="hidden sm:flex items-center gap-2 bg-[#F3F6F1] hover:bg-[#EAF0E7] text-[#172016] px-3.5 py-1.5 rounded-full border border-[#DFE6DC] text-xs font-medium transition-colors"
+            className="hidden sm:flex items-center gap-2 bg-[#F3F6F1]/80 hover:bg-[#EAF0E7] text-[#172016] px-3.5 py-1.5 rounded-full border border-[#DFE6DC] text-xs font-semibold transition-all cursor-pointer shadow-2xs hover:scale-[1.01]"
             aria-expanded={isLocationDropdownOpen}
             aria-haspopup="listbox"
           >
             <MapPin className="w-3.5 h-3.5 text-[#50644E]" />
-            <span className="truncate max-w-[150px] md:max-w-[180px]">
+            <span className="truncate max-w-[150px] md:max-w-[190px]">
               {selectedHub.name}
             </span>
             <ChevronDown className="w-3.5 h-3.5 text-[#5C6B5A]" />
@@ -48,13 +48,13 @@ export const Navbar: React.FC = () => {
                 className="fixed inset-0 z-10"
                 onClick={() => setIsLocationDropdownOpen(false)}
               />
-              <div className="absolute left-0 mt-2 w-72 bg-white rounded-2xl shadow-homie-lg border border-[#E1E8DF] p-2 z-20">
+              <div className="absolute left-0 mt-2 w-72 bg-white/95 backdrop-blur-2xl rounded-2xl shadow-homie-lg border border-[#E1E8DF] p-2 z-20 animate-in fade-in zoom-in-95">
                 <div className="px-3 py-2 border-b border-[#F0F4ED]">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-[#5C6B5A]">
-                    Delhi NCR Pickup Hubs
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-[#5C6B5A]">
+                    Delhi NCR Operating Hubs
                   </p>
                   <p className="text-xs text-[#829280]">
-                    Same pickup & return location applies
+                    Same pickup & return hub required
                   </p>
                 </div>
                 <div className="py-1 max-h-64 overflow-y-auto" role="listbox">
@@ -68,16 +68,16 @@ export const Navbar: React.FC = () => {
                           setSelectedHub(loc);
                           setIsLocationDropdownOpen(false);
                         }}
-                        className={`w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between transition-colors ${
+                        className={`w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between transition-colors cursor-pointer ${
                           isSelected
-                            ? "bg-[#EAF0E7] text-[#172016] font-semibold"
+                            ? "bg-[#EAF0E7] text-[#172016] font-bold"
                             : "hover:bg-[#F7F9F5] text-[#5C6B5A]"
                         }`}
                         role="option"
                         aria-selected={isSelected}
                       >
                         <div>
-                          <p className="font-medium text-[#172016]">{loc.name}</p>
+                          <p className="font-semibold text-[#172016]">{loc.name}</p>
                           <p className="text-[11px] text-[#829280]">{loc.area}</p>
                         </div>
                         {isSelected && (
@@ -104,7 +104,7 @@ export const Navbar: React.FC = () => {
               <Link
                 key={link.name}
                 href={link.href}
-                className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-all ${
+                className={`px-3.5 py-1.5 rounded-full text-sm font-semibold transition-all duration-200 active:scale-95 ${
                   isActive
                     ? "bg-[#50644E] text-white shadow-sm"
                     : "text-[#5C6B5A] hover:text-[#172016] hover:bg-[#F3F6F1]"
@@ -120,7 +120,7 @@ export const Navbar: React.FC = () => {
         <div className="flex items-center gap-2">
           <Link
             href="/plan?tab=cars"
-            className="bg-[#50644E] hover:bg-[#3F503D] text-white text-xs font-semibold px-4 py-2 rounded-full transition-all duration-200 shadow-sm"
+            className="bg-[#50644E] hover:bg-[#3F503D] active:scale-95 text-white text-xs font-bold px-4 py-2 rounded-full transition-all duration-200 shadow-sm"
           >
             Explore Fleet
           </Link>

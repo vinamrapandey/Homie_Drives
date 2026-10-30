@@ -5,7 +5,7 @@ import { Car } from "@/types/car";
  * 
  * Note: These are simulated sample listings with configurable pricing
  * within the provisional range of ₹2,499 to ₹24,999 per day.
- * Actual availability is simulated for UX demonstration.
+ * Multi-angle gallery and telematics status reflect tier-1 mobility standards.
  */
 export const DEMO_CARS: Car[] = [
   {
@@ -16,13 +16,24 @@ export const DEMO_CARS: Car[] = [
     category: "supercar",
     categoryLabel: "Supercar / Grand Tourer",
     year: 2025,
-    badgeTag: "~ Drop",
+    badgeTag: "Trending Drop",
     rating: 4.9,
     reviewsCount: 38,
     dailyPriceINR: 22499,
     monthlyPriceINR: 320000,
     hubLocation: "Aerocity Hub (IGI Airport)",
     image: "/images/cars/homie_vantage_sage.jpg",
+    gallery: [
+      { label: "Exterior 3/4", url: "/images/cars/homie_vantage_sage.jpg" },
+      { label: "Cockpit Cabin", url: "/images/cars/homie_vantage_interior.jpg" },
+      { label: "Rear Diffuser", url: "/images/cars/homie_vantage_rear.jpg" },
+    ],
+    telematicsStatus: {
+      fuelOrBatteryPercent: 96,
+      sanitizedTimeAgo: "Inspected 1h ago",
+      keylessReady: true,
+      fastagActive: true,
+    },
     description:
       "Handcrafted British precision with an intoxicating 4.0L twin-turbocharged V8 engine. Finished in an exclusive sage green, perfect for an unforgettable Delhi to Jaipur expressway drive or premier luxury weekend.",
     specs: {
@@ -54,13 +65,24 @@ export const DEMO_CARS: Car[] = [
     category: "supercar",
     categoryLabel: "Mid-Rear Supercar",
     year: 2024,
-    badgeTag: "~ Up",
+    badgeTag: "Track Pure",
     rating: 5.0,
     reviewsCount: 24,
     dailyPriceINR: 24999,
     monthlyPriceINR: 380000,
     hubLocation: "Cyber Hub DLF Phase 2",
     image: "/images/cars/homie_ferrari_black.jpg",
+    gallery: [
+      { label: "Track Exterior", url: "/images/cars/homie_ferrari_black.jpg" },
+      { label: "Race Cockpit", url: "/images/cars/homie_vantage_interior.jpg" },
+      { label: "Aero Profile", url: "/images/cars/homie_vantage_rear.jpg" },
+    ],
+    telematicsStatus: {
+      fuelOrBatteryPercent: 100,
+      sanitizedTimeAgo: "Cleaned 45m ago",
+      keylessReady: true,
+      fastagActive: true,
+    },
     description:
       "The pinnacle of Italian high-octane engineering. Pure gloss black exterior with track-tuned aerodynamics and race-grade twin-turbo engine delivering breathtaking acceleration.",
     specs: {
@@ -92,13 +114,24 @@ export const DEMO_CARS: Car[] = [
     category: "performance-suv",
     categoryLabel: "Performance Hybrid SUV",
     year: 2025,
-    badgeTag: "~ Drop",
+    badgeTag: "Super SUV",
     rating: 4.8,
     reviewsCount: 52,
     dailyPriceINR: 19499,
     monthlyPriceINR: 275000,
     hubLocation: "Connaught Place Hub",
     image: "/images/cars/homie_urus_suv.jpg",
+    gallery: [
+      { label: "Performance Exterior", url: "/images/cars/homie_urus_suv.jpg" },
+      { label: "Executive Cabin", url: "/images/cars/homie_sedan_interior.jpg" },
+      { label: "Cockpit Displays", url: "/images/cars/homie_vantage_interior.jpg" },
+    ],
+    telematicsStatus: {
+      fuelOrBatteryPercent: 94,
+      sanitizedTimeAgo: "Cleaned 2h ago",
+      keylessReady: true,
+      fastagActive: true,
+    },
     description:
       "The Urus SE is the world's most powerful Super SUV, combining a twin-turbo hybrid V8 with all-wheel drive, air suspension, and commanding Delhi NCR road presence.",
     specs: {
@@ -130,13 +163,24 @@ export const DEMO_CARS: Car[] = [
     category: "luxury-sedan",
     categoryLabel: "Flagship Executive Sedan",
     year: 2024,
-    badgeTag: "~ Up",
+    badgeTag: "First Class",
     rating: 4.9,
     reviewsCount: 67,
     dailyPriceINR: 12499,
     monthlyPriceINR: 185000,
     hubLocation: "Golf Course Road Hub",
     image: "/images/cars/homie_merc_sedan.jpg",
+    gallery: [
+      { label: "Navy Fleet", url: "/images/cars/homie_merc_sedan.jpg" },
+      { label: "Executive Cabin", url: "/images/cars/homie_sedan_interior.jpg" },
+      { label: "Cockpit Trim", url: "/images/cars/homie_vantage_interior.jpg" },
+    ],
+    telematicsStatus: {
+      fuelOrBatteryPercent: 98,
+      sanitizedTimeAgo: "Sanitized 30m ago",
+      keylessReady: true,
+      fastagActive: true,
+    },
     description:
       "The global benchmark for first-class automotive luxury. Finished in deep metallic navy, offering supreme whisper-quiet cabin comfort, rear executive reclining seats, and state-of-the-art tech.",
     specs: {
@@ -175,6 +219,17 @@ export const DEMO_CARS: Car[] = [
     monthlyPriceINR: 49999,
     hubLocation: "Sector 18 Hub",
     image: "/images/cars/homie_ev_crossover.jpg",
+    gallery: [
+      { label: "City Exterior", url: "/images/cars/homie_ev_crossover.jpg" },
+      { label: "Minimalist EV Cabin", url: "/images/cars/homie_sedan_interior.jpg" },
+      { label: "Rear Tail", url: "/images/cars/homie_vantage_rear.jpg" },
+    ],
+    telematicsStatus: {
+      fuelOrBatteryPercent: 100,
+      sanitizedTimeAgo: "Charged 1h ago",
+      keylessReady: true,
+      fastagActive: true,
+    },
     description:
       "Eco-conscious urban commuting perfected for Delhi NCR traffic. Features zero tailpipe emissions, DC fast charging support, ultra-smooth acceleration, and whisper-silent driving.",
     specs: {
@@ -213,6 +268,16 @@ export const DEMO_CARS: Car[] = [
     monthlyPriceINR: 135000,
     hubLocation: "Select Citywalk Hub",
     image: "/images/cars/homie_merc_sedan.jpg",
+    gallery: [
+      { label: "Profile View", url: "/images/cars/homie_merc_sedan.jpg" },
+      { label: "Spacious Cabin", url: "/images/cars/homie_sedan_interior.jpg" },
+    ],
+    telematicsStatus: {
+      fuelOrBatteryPercent: 90,
+      sanitizedTimeAgo: "Inspected 3h ago",
+      keylessReady: true,
+      fastagActive: true,
+    },
     description:
       "Long-wheelbase luxury paired with pure driving dynamics. Ample rear legroom combined with BMW's signature turbocharged twin-power engine for effortless Delhi NCR commutes.",
     specs: {
@@ -251,6 +316,16 @@ export const DEMO_CARS: Car[] = [
     monthlyPriceINR: 42000,
     hubLocation: "Aerocity Hub (IGI Airport)",
     image: "/images/cars/homie_ev_crossover.jpg",
+    gallery: [
+      { label: "Urban Exterior", url: "/images/cars/homie_ev_crossover.jpg" },
+      { label: "Panoramic Cabin", url: "/images/cars/homie_sedan_interior.jpg" },
+    ],
+    telematicsStatus: {
+      fuelOrBatteryPercent: 95,
+      sanitizedTimeAgo: "Cleaned 1h ago",
+      keylessReady: true,
+      fastagActive: true,
+    },
     description:
       "Delhi NCR's favorite everyday SUV with high ground clearance, responsive turbo-petrol engine, panoramic sunroof, and ventilated cooling seats for the hot NCR climate.",
     specs: {
@@ -289,6 +364,16 @@ export const DEMO_CARS: Car[] = [
     monthlyPriceINR: 78000,
     hubLocation: "Cyber Hub DLF Phase 2",
     image: "/images/cars/homie_urus_suv.jpg",
+    gallery: [
+      { label: "Tourer Exterior", url: "/images/cars/homie_urus_suv.jpg" },
+      { label: "7-Seat Cabin", url: "/images/cars/homie_sedan_interior.jpg" },
+    ],
+    telematicsStatus: {
+      fuelOrBatteryPercent: 92,
+      sanitizedTimeAgo: "Inspected 2h ago",
+      keylessReady: true,
+      fastagActive: true,
+    },
     description:
       "Spacious 7-seater road trip master with refined mHawk diesel torque. Ideal for family weekend getaways to Agra, Jaipur, or Rishikesh with maximum road safety.",
     specs: {
