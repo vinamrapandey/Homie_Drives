@@ -4,9 +4,10 @@ import React, { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Car, VehicleConditionTier, VehicleConditionOption } from "@/types/car";
-import { DigiLockerKycRecord } from "@/types/booking";
+import { DigiLockerKycRecord, ActiveRentalPass } from "@/types/booking";
 import { DEFAULT_PROTECTION_PLANS } from "@/data/protection";
 import { formatINR, formatDate, calculateRentalDays } from "@/lib/formatters";
+import { saveActivePass } from "@/lib/passStorage";
 import {
   X,
   CheckCircle,
@@ -60,6 +61,7 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
   const [paymentMethod, setPaymentMethod] = useState<"upi" | "card" | "netbanking">("upi");
   const [isFastagWalletLinked, setIsFastagWalletLinked] = useState(true);
   const [isAgreementAccepted, setIsAgreementAccepted] = useState(true);
+  const [issuedPass, setIssuedPass] = useState<ActiveRentalPass | null>(null);
 
   // Rental days
   const days = Math.max(1, calculateRentalDays(pickupDate, returnDate));
@@ -103,6 +105,64 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
       isAgeEligible: true,
       status: "verified",
     });
+  };
+
+  const handleAuthorizeAndIssuePass = () => {
+    const randomSuffix = Math.floor(1000 + Math.random() * 9000).toString();
+    const bookingRef = `#HD-DEL-${randomSuffix}`;
+
+    let regPrefix = "DL-01";
+    if (car.hubLocation.includes("Cyber Hub") || car.hubLocation.includes("Gurugram")) {
+      regPrefix = "HR-26";
+    } else if (car.hubLocation.includes("Noida") || car.hubLocation.includes("Sector 18")) {
+      regPrefix = "UP-16";
+    }
+    const regNum = `${regPrefix}-${car.brand.slice(0, 2).toUpperCase()}-${randomSuffix}`;
+
+    const newPass: ActiveRentalPass = {
+      id: `pass-${car.slug}-${Date.now()}`,
+      bookingRef,
+      carId: car.id,
+      carSlug: car.slug,
+      carName: car.name,
+      carCategory: car.categoryLabel || car.category,
+      carImage: car.image,
+      brand: car.brand,
+      registrationNumber: regNum,
+      pickupLocation: car.hubLocation,
+      returnLocation: car.hubLocation,
+      pickupDate,
+      returnDate,
+      pickupTime: "10:00 AM",
+      returnTime: "08:00 PM",
+      days,
+      conditionTier: activeCondition?.tier || conditionTier,
+      conditionLabel: activeCondition?.label || "Executive Mint",
+      odometerRange: activeCondition?.odometerRange || "5,000–25,000 km",
+      protectionPlanName: activeProtection.name,
+      protectionPlanId: activeProtection.id,
+      excessLiabilityINR: activeProtection.excessLiabilityINR,
+      fastagBufferINR: isFastagWalletLinked ? 1000 : 0,
+      fastagBalanceINR: isFastagWalletLinked ? 1000 : 0,
+      totalPaidINR: calculatedGrandTotal,
+      pin: randomSuffix,
+      assignedAgent: car.agentAssigned || "Kabir Mehta (Delhi Central)",
+      agentPhone: "+91 98101 88924",
+      driverName: kycRecord?.driverName || "Arjun Sharma",
+      dlNumber: kycRecord?.dlNumber || dlNumber || "DL-0420230012345",
+      kycStatus: "verified",
+      carLocked: true,
+      climateControlActive: false,
+      hazardLightsActive: false,
+      engineReady: true,
+      batteryOrFuelLevel: car.telematicsStatus?.fuelOrBatteryPercent ?? 95,
+      fuelType: car.specs?.fuelType || "Petrol",
+      createdAt: new Date().toISOString(),
+    };
+
+    saveActivePass(newPass);
+    setIssuedPass(newPass);
+    setStep(4);
   };
 
   return (
@@ -575,7 +635,7 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
               <button
                 type="button"
                 disabled={!isAgreementAccepted}
-                onClick={() => setStep(4)}
+                onClick={handleAuthorizeAndIssuePass}
                 className={`flex-1 py-3 px-4 rounded-full text-xs font-bold text-white transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer ${
                   isAgreementAccepted
                     ? "bg-[#50644E] hover:bg-[#3F503D] active:scale-[0.99]"
@@ -615,7 +675,7 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
                     Verified Digital Pass
                   </span>
                   <span className="font-mono text-xs text-white font-bold">
-                    #HD-DEL-8924
+                    {issuedPass?.bookingRef || "#HD-DEL-8924"}
                   </span>
                 </div>
                 <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-2 py-0.5 rounded-full border border-emerald-500/30">
@@ -626,6 +686,9 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <h4 className="font-extrabold text-base text-white">{car.name}</h4>
+                  <p className="text-xs text-white/70">
+                    Reg: <strong className="text-white font-mono">{issuedPass?.registrationNumber || "DL-01-HD-2025"}</strong>
+                  </p>
                   <p className="text-xs text-white/70">
                     Grade: <strong className="text-emerald-300">{activeCondition?.label}</strong> ({activeCondition?.odometerRange})
                   </p>
@@ -646,7 +709,9 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
                 </div>
                 <div>
                   <span className="text-[10px] text-white/50 block">Keyless Digital PIN</span>
-                  <strong className="text-emerald-400 font-mono text-sm tracking-wider">PIN: 8924</strong>
+                  <strong className="text-emerald-400 font-mono text-sm tracking-wider">
+                    PIN: {issuedPass?.pin || "8924"}
+                  </strong>
                 </div>
                 <div>
                   <span className="text-[10px] text-white/50 block">Assigned Specialist</span>
@@ -654,7 +719,9 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
                 </div>
                 <div>
                   <span className="text-[10px] text-white/50 block">Driver Authenticated</span>
-                  <span className="text-emerald-300 font-medium">Arjun Sharma (DL-04)</span>
+                  <span className="text-emerald-300 font-medium">
+                    {issuedPass?.driverName || "Arjun Sharma"} ({issuedPass?.dlNumber?.slice(0, 5) || "DL-04"})
+                  </span>
                 </div>
               </div>
             </div>

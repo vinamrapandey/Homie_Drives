@@ -3,172 +3,536 @@
 import React, { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { ActiveRentalPass } from "@/types/booking";
+import {
+  saveActivePass,
+  useActivePass,
+  usePassArchive,
+} from "@/lib/passStorage";
+import { formatINR } from "@/lib/formatters";
 import {
   Ticket,
   QrCode,
   MapPin,
   Calendar,
-  AlertCircle,
   Car,
-  User,
+  Lock,
+  Unlock,
+  Wind,
+  Volume2,
+  Copy,
+  Check,
+  ShieldCheck,
+  Zap,
+  Fuel,
+  PhoneCall,
+  Maximize2,
+  X,
+  CreditCard,
 } from "lucide-react";
 
 export const PassTab: React.FC = () => {
   const [showDemoPass, setShowDemoPass] = useState(true);
+  const activePass = useActivePass();
+  const passArchive = usePassArchive();
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  // Keyless Fob Local UI State
+  const [isHazardFlashing, setIsHazardFlashing] = useState(false);
+  const [fobActionToast, setFobActionToast] = useState<string | null>(null);
+
+  // Full-screen QR Modal
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+
+  // Copy to clipboard helper
+  const handleCopy = (text: string, fieldName: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(fieldName);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
+
+  // Switch active pass
+  const handleSelectPass = (pass: ActiveRentalPass) => {
+    saveActivePass(pass);
+  };
+
+  // Toggle Keyless Lock / Unlock
+  const handleToggleLock = () => {
+    const nextLocked = !activePass.carLocked;
+    const updated = { ...activePass, carLocked: nextLocked };
+    saveActivePass(updated);
+
+    if (nextLocked) {
+      setFobActionToast("🔒 Doors locked • Perimeter alarm armed & immobilizer active");
+    } else {
+      setFobActionToast("🔓 Doors unlocked • Keyless access active for 60 seconds");
+    }
+    setTimeout(() => setFobActionToast(null), 3500);
+  };
+
+  // Toggle Remote Climate Pre-conditioning
+  const handleToggleClimate = () => {
+    const nextClimate = !activePass.climateControlActive;
+    const updated = { ...activePass, climateControlActive: nextClimate };
+    saveActivePass(updated);
+
+    if (nextClimate) {
+      setFobActionToast("❄️ Cabin pre-cooling engaged • AC set to 21°C with PM2.5 filter ON");
+    } else {
+      setFobActionToast("🛑 Remote climate control turned off");
+    }
+    setTimeout(() => setFobActionToast(null), 3500);
+  };
+
+  // Flash Lights & Horn
+  const handleFlashHazard = () => {
+    setIsHazardFlashing(true);
+    setFobActionToast("📢 Hazard lights flashed & horn sounded 2x to locate vehicle in hub");
+    setTimeout(() => setIsHazardFlashing(false), 2500);
+    setTimeout(() => setFobActionToast(null), 3500);
+  };
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
-      {/* Switcher to view either Demo Pass or Empty State */}
-      <div className="flex items-center justify-between bg-white p-3 rounded-2xl border border-[#E8EFE5] shadow-sm text-xs">
-        <span className="font-semibold text-[#172016]">
-          Pass Preview Mode:
-        </span>
-        <div className="flex items-center gap-1.5 bg-[#F3F6F1] p-1 rounded-xl">
-          <button
-            type="button"
-            onClick={() => setShowDemoPass(true)}
-            className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
-              showDemoPass
-                ? "bg-[#50644E] text-white shadow-sm"
-                : "text-[#5C6B5A] hover:text-[#172016]"
-            }`}
-          >
-            Sample Demo Pass
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowDemoPass(false)}
-            className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
-              !showDemoPass
-                ? "bg-[#50644E] text-white shadow-sm"
-                : "text-[#5C6B5A] hover:text-[#172016]"
-            }`}
-          >
-            Empty State View
-          </button>
-        </div>
-      </div>
-
-      {showDemoPass ? (
-        /* Representative Demo Booking Pass Card */
-        <div className="bg-white rounded-[32px] overflow-hidden border border-[#E1E8DF] shadow-homie relative">
-          {/* Top Banner with Demo Warning */}
-          <div className="bg-[#50644E] text-white px-6 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Ticket className="w-5 h-5 text-[#D4E0D1]" />
-              <div>
-                <p className="font-extrabold text-sm tracking-wide">
-                  DIGITAL RENTAL PASS
-                </p>
-                <p className="text-[11px] text-[#D4E0D1]">
-                  Homie Drives • Delhi NCR
-                </p>
-              </div>
-            </div>
-            <span className="text-[10px] font-bold uppercase tracking-wider bg-white/20 backdrop-blur-sm text-white px-2.5 py-1 rounded-full border border-white/30">
-              Sample Data Only
+      {/* Top Controls: Mode Switcher & Archive Picker */}
+      <div className="bg-white p-3.5 sm:p-4 rounded-3xl border border-[#E8EFE5] shadow-sm space-y-3">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-xs font-bold text-[#172016]">
+              Digital Pass Hub
+            </span>
+            <span className="text-[10px] font-semibold bg-[#EAF0E7] text-[#50644E] px-2.5 py-0.5 rounded-full">
+              Live Keyless Sync
             </span>
           </div>
 
-          <div className="p-6 sm:p-7 space-y-6">
-            {/* Vehicle & Status Row */}
-            <div className="flex items-center gap-4 pb-5 border-b border-[#F0F4ED]">
-              <div className="relative w-24 h-16 bg-[#F8FAF7] rounded-2xl overflow-hidden shrink-0 border border-[#E8EFE5] p-1">
-                <Image
-                  src="/images/cars/homie_vantage_sage.jpg"
-                  alt="Aston Martin Vantage V8"
-                  fill
-                  className="object-contain"
-                />
-              </div>
+          <div className="flex items-center gap-1.5 bg-[#F3F6F1] p-1 rounded-xl text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => setShowDemoPass(true)}
+              className={`px-3 py-1.5 rounded-lg transition-all ${
+                showDemoPass
+                  ? "bg-[#50644E] text-white shadow-sm"
+                  : "text-[#5C6B5A] hover:text-[#172016]"
+              }`}
+            >
+              Active Digital Pass
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowDemoPass(false)}
+              className={`px-3 py-1.5 rounded-lg transition-all ${
+                !showDemoPass
+                  ? "bg-[#50644E] text-white shadow-sm"
+                  : "text-[#5C6B5A] hover:text-[#172016]"
+              }`}
+            >
+              Empty State View
+            </button>
+          </div>
+        </div>
 
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-black text-base sm:text-lg text-[#172016] truncate">
-                    Aston Martin Vantage V8
-                  </h3>
+        {/* Saved Passes Switcher (Domestic Indian fleet & Supercars) */}
+        {showDemoPass && (
+          <div className="pt-2 border-t border-[#F0F4ED] flex items-center justify-between gap-2 overflow-x-auto no-scrollbar text-xs">
+            <span className="text-[11px] font-semibold text-[#829280] shrink-0">
+              Switch Pass:
+            </span>
+            <div className="flex items-center gap-1.5">
+              {passArchive.map((p) => {
+                const isSelected = activePass.bookingRef === p.bookingRef;
+                return (
+                  <button
+                    key={p.bookingRef}
+                    type="button"
+                    onClick={() => handleSelectPass(p)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-medium shrink-0 transition-all border ${
+                      isSelected
+                        ? "bg-[#50644E] text-white border-[#50644E] shadow-2xs font-bold"
+                        : "bg-[#F8FAF7] text-[#5C6B5A] border-[#E8EFE5] hover:border-[#CAD8C6] hover:text-[#172016]"
+                    }`}
+                  >
+                    <span>{p.carName.split(" ")[0]} {p.carName.split(" ")[1]}</span>
+                    <span className="opacity-70 ml-1 text-[10px]">({p.bookingRef.slice(-4)})</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Floating Action Toast Banner */}
+      {fobActionToast && (
+        <div className="p-3 bg-[#172016] text-white rounded-2xl shadow-homie flex items-center justify-between text-xs animate-in slide-in-from-top-2 duration-200">
+          <span className="font-medium">{fobActionToast}</span>
+          <button
+            type="button"
+            onClick={() => setFobActionToast(null)}
+            className="text-white/60 hover:text-white"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
+      {showDemoPass ? (
+        <div className="space-y-5">
+          {/* ===================================================================
+              1. MAIN DIGITAL BOARDING PASS CARD (Mobbin Ro Aesthetic)
+              =================================================================== */}
+          <div className="bg-white rounded-[32px] overflow-hidden border border-[#E1E8DF] shadow-homie relative">
+            {/* Top Verified Banner */}
+            <div className="bg-[#172016] text-white px-5 sm:px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center">
+                  <Ticket className="w-4 h-4 text-emerald-400" />
                 </div>
-                <p className="text-xs text-[#5C6B5A]">
-                  Sage Green • 2025 • Reg: DL-01-HD-2025 (Demo)
-                </p>
-                <div className="mt-1 inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>Ready for Handover at Hub</span>
+                <div>
+                  <p className="font-extrabold text-sm tracking-wide flex items-center gap-1.5">
+                    <span>HOMIE DRIVES DIGITAL PASS</span>
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  </p>
+                  <p className="text-[11px] text-[#A2BA9F]">
+                    Delhi NCR Authorized Self-Drive
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 px-2.5 py-1 rounded-full border border-emerald-500/30">
+                  FASTag Linked
+                </span>
+              </div>
+            </div>
+
+            <div className="p-5 sm:p-7 space-y-6">
+              {/* Vehicle Row */}
+              <div className="flex items-center gap-4 pb-5 border-b border-[#F0F4ED]">
+                <div className="relative w-28 h-20 bg-[#F8FAF7] rounded-2xl overflow-hidden shrink-0 border border-[#E8EFE5] p-1.5">
+                  <Image
+                    src={activePass.carImage}
+                    alt={activePass.carName}
+                    fill
+                    className="object-contain"
+                  />
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-1">
+                    <h3 className="font-black text-lg text-[#172016] truncate">
+                      {activePass.carName}
+                    </h3>
+                  </div>
+                  <p className="text-xs text-[#5C6B5A] mt-0.5">
+                    Reg: <strong className="font-mono text-[#172016]">{activePass.registrationNumber}</strong> • {activePass.carCategory}
+                  </p>
+
+                  <div className="mt-2 flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] font-bold bg-[#EAF0E7] text-[#50644E] px-2 py-0.5 rounded-md">
+                      {activePass.conditionLabel} ({activePass.odometerRange})
+                    </span>
+                    <span className="text-[10px] font-semibold bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded-md border border-emerald-100">
+                      {activePass.protectionPlanName}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Booking Reference & Handover QR Code Box */}
+              <div className="bg-[#F8FAF7] rounded-2xl p-4 sm:p-5 border border-[#E8EFE5] flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
+                <div className="space-y-1">
+                  <span className="text-[11px] font-bold text-[#829280] uppercase tracking-wider block">
+                    Verified Booking Reference
+                  </span>
+                  <div className="flex items-center gap-2 justify-center sm:justify-start">
+                    <span className="text-xl sm:text-2xl font-black text-[#172016] tracking-tight font-mono">
+                      {activePass.bookingRef}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleCopy(activePass.bookingRef, "ref")}
+                      className="p-1 rounded-md text-[#5C6B5A] hover:bg-white hover:text-[#172016] transition-colors"
+                      title="Copy Reference"
+                    >
+                      {copiedField === "ref" ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  </div>
+                  <p className="text-xs text-[#5C6B5A]">
+                    Keyless Access PIN: <strong className="font-mono text-sm text-[#50644E] font-extrabold">{activePass.pin}</strong>
+                  </p>
+                </div>
+
+                {/* QR Code with Tap to Expand */}
+                <div
+                  onClick={() => setIsQrModalOpen(true)}
+                  className="bg-white p-3 rounded-2xl border border-[#DFE6DC] shadow-sm flex flex-col items-center cursor-pointer hover:border-[#50644E] transition-all group shrink-0"
+                >
+                  <div className="relative">
+                    <QrCode className="w-20 h-20 text-[#172016] group-hover:scale-105 transition-transform" />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 rounded-lg flex items-center justify-center transition-colors">
+                      <Maximize2 className="w-4 h-4 text-[#50644E] opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-semibold text-[#50644E] mt-1 flex items-center gap-0.5">
+                    <span>Tap to Enlarge</span>
+                  </span>
+                </div>
+              </div>
+
+              {/* Hub & Schedule Info Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div className="bg-[#F8FAF7] p-3.5 rounded-2xl border border-[#E8EFE5]">
+                  <span className="text-[11px] font-bold text-[#829280] uppercase tracking-wider block flex items-center gap-1 mb-1">
+                    <MapPin className="w-3.5 h-3.5 text-[#50644E]" />
+                    Pickup & Handover Hub
+                  </span>
+                  <p className="font-bold text-sm text-[#172016]">
+                    {activePass.pickupLocation}
+                  </p>
+                  <p className="text-[11px] text-[#5C6B5A] mt-0.5">
+                    Return to the same hub in Delhi NCR
+                  </p>
+                </div>
+
+                <div className="bg-[#F8FAF7] p-3.5 rounded-2xl border border-[#E8EFE5]">
+                  <span className="text-[11px] font-bold text-[#829280] uppercase tracking-wider block flex items-center gap-1 mb-1">
+                    <Calendar className="w-3.5 h-3.5 text-[#50644E]" />
+                    Rental Schedule ({activePass.days} Days)
+                  </span>
+                  <p className="font-bold text-sm text-[#172016]">
+                    {activePass.pickupDate} → {activePass.returnDate}
+                  </p>
+                  <p className="text-[11px] text-[#5C6B5A] mt-0.5">
+                    Handover from {activePass.pickupTime} • Return by {activePass.returnTime}
+                  </p>
+                </div>
+              </div>
+
+              {/* Live Telematics & FASTag Health Ribbon */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                {/* Fuel / Battery Gauge */}
+                <div className="bg-[#F8FAF7] p-3 rounded-xl border border-[#E8EFE5]">
+                  <div className="flex items-center justify-between text-[#5C6B5A] mb-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                      {activePass.fuelType.includes("Electric") ? (
+                        <Zap className="w-3 h-3 text-emerald-600" />
+                      ) : (
+                        <Fuel className="w-3 h-3 text-amber-600" />
+                      )}
+                      {activePass.fuelType.includes("Electric") ? "State of Charge" : "Fuel Level"}
+                    </span>
+                    <span className="font-bold text-[#172016]">
+                      {activePass.batteryOrFuelLevel}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-[#E8EFE5] h-1.5 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${
+                        activePass.batteryOrFuelLevel > 40
+                          ? "bg-emerald-600"
+                          : "bg-amber-500"
+                      }`}
+                      style={{ width: `${activePass.batteryOrFuelLevel}%` }}
+                    />
+                  </div>
+                  <span className="text-[10px] text-[#829280] mt-1 block">
+                    Full-to-Full Policy
+                  </span>
+                </div>
+
+                {/* FASTag Buffer Balance */}
+                <div className="bg-[#F8FAF7] p-3 rounded-xl border border-[#E8EFE5]">
+                  <div className="flex items-center justify-between text-[#5C6B5A] mb-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                      <CreditCard className="w-3 h-3 text-[#50644E]" />
+                      FASTag Buffer
+                    </span>
+                    <span className="font-bold text-[#172016]">
+                      {formatINR(activePass.fastagBalanceINR)}
+                    </span>
+                  </div>
+                  <div className="w-full bg-[#E8EFE5] h-1.5 rounded-full overflow-hidden">
+                    <div className="h-full bg-[#50644E] rounded-full w-[90%]" />
+                  </div>
+                  <span className="text-[10px] text-emerald-700 font-medium mt-1 block">
+                    All NCR Toll Plazas Ready
+                  </span>
+                </div>
+
+                {/* DigiLocker Verified Driver */}
+                <div className="bg-[#F8FAF7] p-3 rounded-xl border border-[#E8EFE5]">
+                  <div className="flex items-center justify-between text-[#5C6B5A] mb-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                      <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                      DigiLocker KYC
+                    </span>
+                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded">
+                      Verified
+                    </span>
+                  </div>
+                  <p className="font-bold text-xs text-[#172016] truncate">
+                    {activePass.driverName}
+                  </p>
+                  <span className="text-[10px] text-[#829280] block font-mono">
+                    {activePass.dlNumber}
+                  </span>
+                </div>
+              </div>
+
+              {/* Handover Agent Contact & SOS */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-[#EAF0E7] rounded-2xl text-xs text-[#3D4F3B]">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-white text-[#50644E] flex items-center justify-center font-bold text-sm shadow-2xs">
+                    {activePass.assignedAgent.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-[#5C6B5A] block">
+                      Assigned Hub Specialist
+                    </span>
+                    <span className="font-bold text-sm text-[#172016]">
+                      {activePass.assignedAgent}
+                    </span>
+                    <span className="text-[11px] text-[#5C6B5A] block">
+                      {activePass.agentPhone}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <a
+                    href={`tel:${activePass.agentPhone.replace(/\s+/g, "")}`}
+                    className="flex items-center gap-1.5 bg-[#50644E] text-white px-3.5 py-2 rounded-xl font-bold text-xs hover:bg-[#3F503D] transition-colors shadow-2xs"
+                  >
+                    <PhoneCall className="w-3.5 h-3.5" />
+                    <span>Call Specialist</span>
+                  </a>
+                  <a
+                    href="tel:+911140004664"
+                    className="flex items-center gap-1.5 bg-white text-rose-700 border border-rose-200 px-3 py-2 rounded-xl font-bold text-xs hover:bg-rose-50 transition-colors"
+                  >
+                    <span>24x7 SOS</span>
+                  </a>
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* QR Code and Security Code Box */}
-            <div className="bg-[#F8FAF7] rounded-2xl p-5 border border-[#E8EFE5] flex flex-col sm:flex-row items-center justify-between gap-5 text-center sm:text-left">
-              <div>
-                <span className="text-[11px] font-bold text-[#829280] uppercase tracking-wider block">
-                  Simulated Booking Ref
-                </span>
-                <span className="text-xl font-black text-[#172016] tracking-tight block">
-                  #HD-DEL-8924
-                </span>
-                <span className="text-xs text-[#5C6B5A] mt-1 block">
-                  Agent PIN: <strong className="font-mono text-sm text-[#50644E]">8924</strong>
-                </span>
-              </div>
-
-              {/* QR Code Graphic Mockup */}
-              <div className="bg-white p-3 rounded-2xl border border-[#DFE6DC] shadow-sm flex flex-col items-center">
-                <QrCode className="w-20 h-20 text-[#172016]" />
-                <span className="text-[10px] font-medium text-[#829280] mt-1">
-                  Scan at Handover Hub
-                </span>
-              </div>
-            </div>
-
-            {/* Hub & Schedule Info */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-              <div className="bg-[#F8FAF7] p-3.5 rounded-xl border border-[#E8EFE5]">
-                <span className="text-[11px] font-bold text-[#829280] uppercase tracking-wider block flex items-center gap-1 mb-1">
-                  <MapPin className="w-3.5 h-3.5 text-[#50644E]" />
-                  Pickup & Return Hub
-                </span>
-                <p className="font-bold text-[#172016]">
-                  Aerocity Hub (IGI Airport)
-                </p>
-                <p className="text-[11px] text-[#5C6B5A]">
-                  T3 Hospitality District, New Delhi
-                </p>
-              </div>
-
-              <div className="bg-[#F8FAF7] p-3.5 rounded-xl border border-[#E8EFE5]">
-                <span className="text-[11px] font-bold text-[#829280] uppercase tracking-wider block flex items-center gap-1 mb-1">
-                  <Calendar className="w-3.5 h-3.5 text-[#50644E]" />
-                  Rental Schedule
-                </span>
-                <p className="font-bold text-[#172016]">
-                  Fri, 14 Nov – Mon, 17 Nov (3 Days)
-                </p>
-                <p className="text-[11px] text-[#5C6B5A]">
-                  Pickup from 10:00 AM • Return by 08:00 PM
-                </p>
-              </div>
-            </div>
-
-            {/* Handover Agent Assignment */}
-            <div className="flex items-center justify-between p-3.5 bg-[#EAF0E7] rounded-xl text-xs text-[#3D4F3B]">
+          {/* ===================================================================
+              2. KEYLESS MOBILE ACCESS FOB SIMULATOR
+              =================================================================== */}
+          <div className="bg-[#172016] text-white rounded-[32px] p-5 sm:p-7 border border-[#2D3A2B] shadow-homie space-y-5">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <User className="w-4 h-4 text-[#50644E]" />
-                <span>
-                  Assigned Agent: <strong>Kabir Mehta</strong> (+91 98XXX X8924)
+                <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center">
+                  <Zap className="w-4 h-4 text-emerald-400" />
+                </div>
+                <div>
+                  <h4 className="font-black text-base tracking-tight text-white">
+                    Keyless Smart Access Remote
+                  </h4>
+                  <p className="text-[11px] text-[#A2BA9F]">
+                    Bluetooth &amp; Cellular Telematics Fob
+                  </p>
+                </div>
+              </div>
+
+              {/* Status Indicator */}
+              <div className="flex items-center gap-1.5">
+                <span
+                  className={`w-2.5 h-2.5 rounded-full ${
+                    activePass.carLocked ? "bg-rose-500 animate-pulse" : "bg-emerald-400 animate-pulse"
+                  }`}
+                />
+                <span className="text-xs font-bold font-mono tracking-wider">
+                  {activePass.carLocked ? "LOCKED" : "UNLOCKED"}
                 </span>
               </div>
-              <span className="text-[11px] bg-white px-2 py-0.5 rounded-md font-semibold text-[#50644E]">
-                Delhi Central
-              </span>
             </div>
 
-            {/* Demo Notice Warning */}
-            <div className="bg-[#FFFBEB] border border-[#FDE68A] p-3.5 rounded-xl flex items-start gap-2.5 text-xs text-[#92400E]">
-              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-              <span>
-                <strong>Sample Booking Card:</strong> This is a visual representation of the digital pass experience for Phase 1. No booking or identity verification has been performed.
+            {/* Remote Fob Buttons Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {/* Lock / Unlock Toggle Button */}
+              <button
+                type="button"
+                onClick={handleToggleLock}
+                className={`p-4 rounded-2xl flex flex-col items-center justify-center gap-2 transition-all cursor-pointer border ${
+                  activePass.carLocked
+                    ? "bg-white/10 hover:bg-white/15 border-white/15 text-white active:scale-98"
+                    : "bg-emerald-500/20 hover:bg-emerald-500/30 border-emerald-500/40 text-emerald-300"
+                }`}
+              >
+                {activePass.carLocked ? (
+                  <Lock className="w-6 h-6 text-white" />
+                ) : (
+                  <Unlock className="w-6 h-6 text-emerald-300" />
+                )}
+                <span className="text-xs font-bold">
+                  {activePass.carLocked ? "Tap to Unlock Doors" : "Doors Unlocked (Tap to Lock)"}
+                </span>
+                <span className="text-[10px] text-white/60">
+                  {activePass.carLocked ? "Alarm Armed" : "Ready to Drive"}
+                </span>
+              </button>
+
+              {/* Climate Pre-condition Toggle */}
+              <button
+                type="button"
+                onClick={handleToggleClimate}
+                className={`p-4 rounded-2xl flex flex-col items-center justify-center gap-2 transition-all cursor-pointer border ${
+                  activePass.climateControlActive
+                    ? "bg-cyan-500/20 hover:bg-cyan-500/30 border-cyan-500/40 text-cyan-300"
+                    : "bg-white/10 hover:bg-white/15 border-white/15 text-white active:scale-98"
+                }`}
+              >
+                <Wind
+                  className={`w-6 h-6 ${
+                    activePass.climateControlActive ? "text-cyan-300 animate-spin" : "text-white"
+                  }`}
+                />
+                <span className="text-xs font-bold">
+                  {activePass.climateControlActive ? "Cabin AC Active" : "Remote Cabin Climate"}
+                </span>
+                <span className="text-[10px] text-white/60">
+                  {activePass.climateControlActive ? "21°C • Air Clean ON" : "Pre-Cool / Pre-Heat"}
+                </span>
+              </button>
+
+              {/* Hazard Lights / Horn Strobe */}
+              <button
+                type="button"
+                onClick={handleFlashHazard}
+                className={`p-4 rounded-2xl flex flex-col items-center justify-center gap-2 transition-all cursor-pointer border col-span-2 sm:col-span-1 ${
+                  isHazardFlashing
+                    ? "bg-amber-500/30 border-amber-400 text-amber-300 animate-pulse"
+                    : "bg-white/10 hover:bg-white/15 border-white/15 text-white active:scale-98"
+                }`}
+              >
+                <Volume2 className="w-6 h-6 text-amber-400" />
+                <span className="text-xs font-bold">Find My Car</span>
+                <span className="text-[10px] text-white/60">
+                  {isHazardFlashing ? "Flashing Lights 3x..." : "Sound Horn & Flash"}
+                </span>
+              </button>
+            </div>
+
+            {/* Immobilizer PIN Note */}
+            <div className="pt-2 border-t border-white/10 flex items-center justify-between text-xs text-white/70">
+              <span className="text-[11px]">
+                Immobilizer Handover PIN: <strong className="font-mono text-emerald-400 text-sm">{activePass.pin}</strong>
               </span>
+              <button
+                type="button"
+                onClick={() => handleCopy(activePass.pin, "pin")}
+                className="text-emerald-400 hover:text-emerald-300 font-semibold text-xs flex items-center gap-1"
+              >
+                {copiedField === "pin" ? <span>Copied!</span> : <span>Copy PIN</span>}
+              </button>
             </div>
           </div>
         </div>
@@ -184,21 +548,85 @@ export const PassTab: React.FC = () => {
           </h3>
 
           <p className="text-xs text-[#5C6B5A] max-w-md mx-auto leading-relaxed">
-            When you complete a booking in Homie Drives, your digital rental pass, pickup QR code, assigned agent contact, and vehicle lock status will appear right here.
+            When you complete a reservation in Homie Drives, your digital rental pass, pickup QR code, assigned agent contact, and vehicle lock status will appear right here.
           </p>
 
-          <div className="pt-2">
+          <div className="pt-2 flex items-center justify-center gap-3 flex-wrap">
             <Link
               href="/plan?tab=cars"
               className="inline-flex items-center gap-2 bg-[#50644E] hover:bg-[#3F503D] text-white text-xs font-bold py-3.5 px-6 rounded-full transition-all shadow-sm"
             >
               <Car className="w-4 h-4" />
-              <span>Browse Fleet & Rates</span>
+              <span>Browse Fleet &amp; Book</span>
             </Link>
+            <button
+              type="button"
+              onClick={() => setShowDemoPass(true)}
+              className="py-3 px-5 rounded-full border border-[#DFE6DC] text-xs font-bold text-[#50644E] hover:bg-[#F3F6F1] transition-colors"
+            >
+              View Active Demo Pass
+            </button>
           </div>
 
           <div className="pt-4 border-t border-[#F0F4ED] text-[11px] text-[#829280]">
-            Digital pass verification and live reservation sync will be enabled in Phase 2.
+            Digital pass verification and live reservation sync is active with DigiLocker KYC.
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================
+          3. FULL-SCREEN QR CODE MODAL FOR HUB HANDOVER AGENTS
+          =================================================================== */}
+      {isQrModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-sm rounded-[32px] p-6 shadow-homie-lg border border-[#E1E8DF] relative text-center space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-[#F0F4ED]">
+              <span className="text-xs font-bold text-[#50644E] uppercase tracking-wider">
+                Hub Dispatch Scanner
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsQrModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-[#F3F6F1] hover:bg-[#EAF0E7] flex items-center justify-center text-[#5C6B5A] hover:text-[#172016] transition-colors cursor-pointer"
+                aria-label="Close QR Modal"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div>
+              <h4 className="font-extrabold text-base text-[#172016]">
+                {activePass.carName}
+              </h4>
+              <p className="text-xs text-[#5C6B5A] font-mono mt-0.5">
+                {activePass.registrationNumber} • Ref: {activePass.bookingRef}
+              </p>
+            </div>
+
+            {/* High-Contrast Large QR */}
+            <div className="bg-[#F8FAF7] p-5 rounded-2xl border-2 border-[#50644E]/20 flex flex-col items-center shadow-inner">
+              <QrCode className="w-44 h-44 text-[#172016]" />
+              <span className="text-xs font-mono font-bold text-[#50644E] mt-3 tracking-widest text-base">
+                PIN: {activePass.pin}
+              </span>
+            </div>
+
+            <div className="text-xs text-[#5C6B5A] space-y-1">
+              <p>
+                Present this screen to <strong>{activePass.assignedAgent}</strong> at <strong>{activePass.pickupLocation}</strong>.
+              </p>
+              <p className="text-[11px] text-[#829280]">
+                Driver verified: {activePass.driverName} ({activePass.dlNumber})
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsQrModalOpen(false)}
+              className="w-full py-3 rounded-full bg-[#50644E] text-white text-xs font-bold hover:bg-[#3F503D] transition-colors"
+            >
+              Done Scanning
+            </button>
           </div>
         </div>
       )}

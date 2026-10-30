@@ -34,6 +34,47 @@ export interface RentalPassDemo {
   securityCode: string;
 }
 
+export interface ActiveRentalPass {
+  id: string;
+  bookingRef: string;
+  carId: string;
+  carSlug: string;
+  carName: string;
+  carCategory: string;
+  carImage: string;
+  brand: string;
+  registrationNumber: string;
+  pickupLocation: string;
+  returnLocation: string;
+  pickupDate: string;
+  returnDate: string;
+  pickupTime: string;
+  returnTime: string;
+  days: number;
+  conditionTier: "pristine" | "mint" | "touring";
+  conditionLabel: string;
+  odometerRange: string;
+  protectionPlanName: string;
+  protectionPlanId: "basic" | "premium" | "super";
+  excessLiabilityINR: number;
+  fastagBufferINR: number;
+  fastagBalanceINR: number;
+  totalPaidINR: number;
+  pin: string;
+  assignedAgent: string;
+  agentPhone: string;
+  driverName: string;
+  dlNumber: string;
+  kycStatus: "verified" | "pending";
+  carLocked: boolean;
+  climateControlActive: boolean;
+  hazardLightsActive?: boolean;
+  engineReady: boolean;
+  batteryOrFuelLevel: number;
+  fuelType: string;
+  createdAt: string;
+}
+
 export interface DamageProtectionPlan {
   id: "basic" | "premium" | "super";
   name: string;
