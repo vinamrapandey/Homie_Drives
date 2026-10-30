@@ -62,6 +62,7 @@ export interface RoadTripPitstop {
   type: "food" | "ev-charging" | "fuel" | "rest";
   location: string;
   distanceKm: number;
+  description?: string;
 }
 
 export interface RoadTripPlan {
@@ -75,6 +76,7 @@ export interface RoadTripPlan {
   recommendedCarCategory: string;
   highlights: string[];
   expresswayName?: string;
+  speedLimitKmh?: number;
   oneWayTollINR?: number;
   returnTollINR?: number;
   estFuelOrChargeCostINR?: number;
