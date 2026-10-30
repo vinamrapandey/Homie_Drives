@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-page: #F3F6F1;
+    --bg-card: #FFFFFF;
+    --text-primary: #172016;
+    --text-secondary: #5C6B5A;
+    --text-muted: #829280;
+    --brand-sage: #50644E;
+    --brand-sage-dark: #3F503D;
+    --brand-sage-light: #D4E0D1;
+    --brand-sage-tint: #EAF0E7;
+    --border-light: #E1E8DF;
+    --star-amber: #E89619;
+  }
+
+  body {
+    background-color: var(--bg-page);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+}
+
+/* Custom utility classes tailored to the reference design */
+.bg-homie-page {
+  background-color: #F3F6F1;
+}
+
+.bg-homie-card {
+  background-color: #FFFFFF;
+}
+
+.bg-homie-sage {
+  background-color: #50644E;
+}
+
+.bg-homie-sage-dark {
+  background-color: #3F503D;
+}
+
+.bg-homie-sage-light {
+  background-color: #D4E0D1;
+}
+
+.bg-homie-sage-tint {
+  background-color: #EAF0E7;
+}
+
+.text-homie-dark {
+  color: #172016;
+}
+
+.text-homie-muted {
+  color: #5C6B5A;
+}
+
+.border-homie {
+  border-color: #E1E8DF;
+}
+
+/* Soft ambient shadow with subtle olive/sage tone */
+.shadow-homie {
+  box-shadow: 0 12px 32px -8px rgba(35, 48, 33, 0.08), 0 4px 12px -2px rgba(35, 48, 33, 0.04);
+}
+
+.shadow-homie-lg {
+  box-shadow: 0 20px 48px -12px rgba(35, 48, 33, 0.12), 0 8px 20px -4px rgba(35, 48, 33, 0.06);
+}
+
+/* Bottom safe-area for mobile fixed nav */
+.safe-bottom-padding {
+  padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+}
+
+/* Hide scrollbar for brand pill slider */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
