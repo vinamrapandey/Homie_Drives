@@ -1,13 +1,199 @@
-import { Car } from "@/types/car";
+import { Car, VehicleConditionOption } from "@/types/car";
 
 /**
- * DEMO VEHICLE FLEET DATA FOR HOMIE DRIVES (DELHI NCR)
- * 
- * Note: These are simulated sample listings with configurable pricing
- * within the provisional range of ₹2,499 to ₹24,999 per day.
- * Multi-angle gallery and telematics status reflect tier-1 mobility standards.
+ * Standard 3-Tier Vehicle Condition Grades
+ * Used across the fleet for transparent condition-based pricing.
  */
+export const DEFAULT_CONDITION_OPTIONS: VehicleConditionOption[] = [
+  {
+    tier: "pristine",
+    label: "Showroom Pristine",
+    badge: "Grade A+ • < 5,000 KM",
+    odometerRange: "< 5,000 km",
+    cosmeticDescription: "Factory delivery finish, zero stone chips, showroom interior scent",
+    priceMultiplier: 1.15,
+    inspectionStatus: "Showroom Certified",
+    popularFor: "Weddings, VIP Events & Luxury Showcase",
+  },
+  {
+    tier: "mint",
+    label: "Executive Mint",
+    badge: "Standard Fleet • 5k–25k KM",
+    odometerRange: "5,000–25,000 km",
+    cosmeticDescription: "Spotless cabin, steam sanitized, certified zero mechanical wear",
+    priceMultiplier: 1.0,
+    inspectionStatus: "150-Point Checked",
+    popularFor: "Weekend Getaways & Daily Commutes",
+  },
+  {
+    tier: "touring",
+    label: "Touring / Value",
+    badge: "Smart Value • 25k–60k KM",
+    odometerRange: "25,000–60,000 km",
+    cosmeticDescription: "Mechanically certified, minor highway patina, best price-per-km",
+    priceMultiplier: 0.85,
+    inspectionStatus: "Highway Certified",
+    popularFor: "Expressway Trips (Jaipur, Agra, Rishikesh)",
+  },
+];
+
 export const DEMO_CARS: Car[] = [
+  // --- Indian Domestic Fleet Additions ---
+  {
+    id: "homie-car-in-01",
+    slug: "mahindra-thar-roxx-4x4",
+    name: "Mahindra Thar Roxx 4x4 AX7L",
+    brand: "Mahindra",
+    category: "adventure-4x4",
+    categoryLabel: "5-Door Adventure 4x4",
+    year: 2025,
+    badgeTag: "Hot Off-Roader",
+    rating: 4.9,
+    reviewsCount: 84,
+    dailyPriceINR: 4499,
+    monthlyPriceINR: 72000,
+    hubLocation: "Cyber Hub DLF Phase 2",
+    image: "/images/cars/homie_thar_roxx.jpg",
+    gallery: [
+      { label: "Exterior 4x4", url: "/images/cars/homie_thar_roxx.jpg" },
+      { label: "Cockpit Cabin", url: "/images/cars/homie_vantage_interior.jpg" },
+      { label: "Rear Trail View", url: "/images/cars/homie_vantage_rear.jpg" },
+    ],
+    telematicsStatus: {
+      fuelOrBatteryPercent: 95,
+      sanitizedTimeAgo: "Cleaned 40m ago",
+      keylessReady: true,
+      fastagActive: true,
+    },
+    conditionOptions: DEFAULT_CONDITION_OPTIONS,
+    defaultConditionTier: "mint",
+    description:
+      "India's iconic 4x4 reborn with 5 doors, electronic locking differential, panoramic Skyroof, and mStallion turbo power. The ultimate self-drive choice for Delhi to Uttarakhand mountain trails or Rajasthan desert dunes.",
+    specs: {
+      rangeOrMileage: "14 KM/L",
+      horsePower: "177 HP",
+      topSpeed: "175 km/h",
+      fuelType: "Petrol",
+      transmission: "Automatic",
+      seats: 5,
+      luggageBags: 3,
+      acceleration0to100: "10.2s",
+    },
+    features: [
+      "Electronic 4x4 with Terrain Modes",
+      "Panoramic Skyroof",
+      "Harman Kardon 9-Speaker Audio",
+      "Level 2 ADAS Highway Assist",
+      "Ventilated Leatherette Seats",
+      "Delhi-NCR FASTag Pre-Loaded",
+    ],
+    isAvailableDemo: true,
+    agentAssigned: "Agent Kabir Mehta (Cyber Hub Gurugram)",
+  },
+  {
+    id: "homie-car-in-02",
+    slug: "tata-nexon-ev-long-range",
+    name: "Tata Nexon EV Empowered+ LR",
+    brand: "Tata",
+    category: "city-ev",
+    categoryLabel: "Long-Range Electric Crossover",
+    year: 2025,
+    badgeTag: "Green EV",
+    rating: 4.8,
+    reviewsCount: 104,
+    dailyPriceINR: 2699,
+    monthlyPriceINR: 39999,
+    hubLocation: "Sector 18 Hub",
+    image: "/images/cars/homie_nexon_ev.jpg",
+    gallery: [
+      { label: "EV Exterior", url: "/images/cars/homie_nexon_ev.jpg" },
+      { label: "Digital Cockpit", url: "/images/cars/homie_sedan_interior.jpg" },
+      { label: "Rear Profile", url: "/images/cars/homie_vantage_rear.jpg" },
+    ],
+    telematicsStatus: {
+      fuelOrBatteryPercent: 100,
+      sanitizedTimeAgo: "Charged 1h ago",
+      keylessReady: true,
+      fastagActive: true,
+    },
+    conditionOptions: DEFAULT_CONDITION_OPTIONS,
+    defaultConditionTier: "mint",
+    description:
+      "India's best-selling electric SUV equipped with a 45kWh high-density battery delivering a genuine 350+ km real-world NCR range. Whisper-quiet, ultra-efficient, with complimentary fast charging across all Homie Delhi NCR hubs.",
+    specs: {
+      rangeOrMileage: "465 KM Range",
+      horsePower: "145 HP",
+      topSpeed: "150 km/h",
+      fuelType: "Electric",
+      transmission: "Automatic",
+      seats: 5,
+      luggageBags: 3,
+      acceleration0to100: "8.9s",
+    },
+    features: [
+      "45kWh Prismatic Battery Pack",
+      "Vehicle-to-Load (V2L) Power Bank",
+      "12.3-inch Cinematic Touchscreen",
+      "Air Purifier with AQI Display",
+      "Free DC Fast Charging at Homie Hubs",
+      "Keyless Mobile Access (Demo)",
+    ],
+    isAvailableDemo: true,
+    agentAssigned: "Agent Pooja Batra (Noida Sector 18)",
+  },
+  {
+    id: "homie-car-in-03",
+    slug: "toyota-innova-hycross-zx",
+    name: "Toyota Innova HyCross ZX(O) Hybrid",
+    brand: "Toyota",
+    category: "family-tourer",
+    categoryLabel: "7-Seater Executive Hybrid Lounge",
+    year: 2025,
+    badgeTag: "VIP Lounge",
+    rating: 4.9,
+    reviewsCount: 138,
+    dailyPriceINR: 5499,
+    monthlyPriceINR: 88000,
+    hubLocation: "Aerocity Hub (IGI Airport)",
+    image: "/images/cars/homie_innova_hycross.jpg",
+    gallery: [
+      { label: "Lounge Exterior", url: "/images/cars/homie_innova_hycross.jpg" },
+      { label: "Ottoman Captain Seats", url: "/images/cars/homie_sedan_interior.jpg" },
+      { label: "Cockpit Dash", url: "/images/cars/homie_vantage_interior.jpg" },
+    ],
+    telematicsStatus: {
+      fuelOrBatteryPercent: 98,
+      sanitizedTimeAgo: "Inspected 30m ago",
+      keylessReady: true,
+      fastagActive: true,
+    },
+    conditionOptions: DEFAULT_CONDITION_OPTIONS,
+    defaultConditionTier: "mint",
+    description:
+      "The undisputed king of Indian highway touring. Features second-row powered Ottoman reclining captain seats, self-charging strong hybrid synergy drive, and unmatched ride smoothness for Delhi to Jaipur / Agra expressway family trips.",
+    specs: {
+      rangeOrMileage: "23 KM/L",
+      horsePower: "186 HP",
+      topSpeed: "185 km/h",
+      fuelType: "Hybrid",
+      transmission: "Automatic",
+      seats: 7,
+      luggageBags: 5,
+      acceleration0to100: "9.5s",
+    },
+    features: [
+      "Self-Charging Strong Hybrid Engine",
+      "Powered Ottoman Reclining Seats",
+      "Panoramic Moonroof with Mood Lighting",
+      "JBL 9-Speaker Audio System",
+      "Same-Day IGI Airport Terminal Handover",
+      "Priority Concierge Support",
+    ],
+    isAvailableDemo: true,
+    agentAssigned: "Agent Gaurav Sharma (IGI Aerocity Hub)",
+  },
+
+  // --- Exotic & Supercar Fleet ---
   {
     id: "homie-car-01",
     slug: "aston-martin-vantage-v8",
@@ -34,8 +220,10 @@ export const DEMO_CARS: Car[] = [
       keylessReady: true,
       fastagActive: true,
     },
+    conditionOptions: DEFAULT_CONDITION_OPTIONS,
+    defaultConditionTier: "mint",
     description:
-      "Handcrafted British precision with an intoxicating 4.0L twin-turbocharged V8 engine. Finished in an exclusive sage green, perfect for an unforgettable Delhi to Jaipur expressway drive or premier luxury weekend.",
+      "Handcrafted British precision with an intoxicating 4.0L twin-turbocharged V8 engine. Finished in exclusive sage green, perfect for an unforgettable Delhi to Jaipur expressway drive or premier luxury weekend.",
     specs: {
       rangeOrMileage: "540 KM Range",
       horsePower: "503 HP",
@@ -83,6 +271,8 @@ export const DEMO_CARS: Car[] = [
       keylessReady: true,
       fastagActive: true,
     },
+    conditionOptions: DEFAULT_CONDITION_OPTIONS,
+    defaultConditionTier: "mint",
     description:
       "The pinnacle of Italian high-octane engineering. Pure gloss black exterior with track-tuned aerodynamics and race-grade twin-turbo engine delivering breathtaking acceleration.",
     specs: {
@@ -132,6 +322,8 @@ export const DEMO_CARS: Car[] = [
       keylessReady: true,
       fastagActive: true,
     },
+    conditionOptions: DEFAULT_CONDITION_OPTIONS,
+    defaultConditionTier: "mint",
     description:
       "The Urus SE is the world's most powerful Super SUV, combining a twin-turbo hybrid V8 with all-wheel drive, air suspension, and commanding Delhi NCR road presence.",
     specs: {
@@ -181,6 +373,8 @@ export const DEMO_CARS: Car[] = [
       keylessReady: true,
       fastagActive: true,
     },
+    conditionOptions: DEFAULT_CONDITION_OPTIONS,
+    defaultConditionTier: "mint",
     description:
       "The global benchmark for first-class automotive luxury. Finished in deep metallic navy, offering supreme whisper-quiet cabin comfort, rear executive reclining seats, and state-of-the-art tech.",
     specs: {
@@ -203,55 +397,6 @@ export const DEMO_CARS: Car[] = [
     ],
     isAvailableDemo: true,
     agentAssigned: "Agent Tarun Grover (Golf Course Road)",
-  },
-  {
-    id: "homie-car-05",
-    slug: "veloce-ev-crossover",
-    name: "Veloce ION City Crossover EV",
-    brand: "Veloce",
-    category: "city-ev",
-    categoryLabel: "Modern Electric Crossover",
-    year: 2025,
-    badgeTag: "EV Fast Charge",
-    rating: 4.7,
-    reviewsCount: 89,
-    dailyPriceINR: 3499,
-    monthlyPriceINR: 49999,
-    hubLocation: "Sector 18 Hub",
-    image: "/images/cars/homie_ev_crossover.jpg",
-    gallery: [
-      { label: "City Exterior", url: "/images/cars/homie_ev_crossover.jpg" },
-      { label: "Minimalist EV Cabin", url: "/images/cars/homie_sedan_interior.jpg" },
-      { label: "Rear Tail", url: "/images/cars/homie_vantage_rear.jpg" },
-    ],
-    telematicsStatus: {
-      fuelOrBatteryPercent: 100,
-      sanitizedTimeAgo: "Charged 1h ago",
-      keylessReady: true,
-      fastagActive: true,
-    },
-    description:
-      "Eco-conscious urban commuting perfected for Delhi NCR traffic. Features zero tailpipe emissions, DC fast charging support, ultra-smooth acceleration, and whisper-silent driving.",
-    specs: {
-      rangeOrMileage: "450 KM Range",
-      horsePower: "215 HP",
-      topSpeed: "180 km/h",
-      fuelType: "Electric",
-      transmission: "Automatic",
-      seats: 5,
-      luggageBags: 3,
-      acceleration0to100: "7.2s",
-    },
-    features: [
-      "100kW DC Fast Charge Ready",
-      "Connected Car App Telematics",
-      "Panoramic Glass Roof",
-      "Air Purifier with PM2.5 Filter",
-      "Regenerative Braking Modes",
-      "Free Supercharging at Homie Hubs",
-    ],
-    isAvailableDemo: true,
-    agentAssigned: "Agent Pooja Batra (Noida Sector 18)",
   },
   {
     id: "homie-car-06",
@@ -278,6 +423,8 @@ export const DEMO_CARS: Car[] = [
       keylessReady: true,
       fastagActive: true,
     },
+    conditionOptions: DEFAULT_CONDITION_OPTIONS,
+    defaultConditionTier: "mint",
     description:
       "Long-wheelbase luxury paired with pure driving dynamics. Ample rear legroom combined with BMW's signature turbocharged twin-power engine for effortless Delhi NCR commutes.",
     specs: {
@@ -326,6 +473,8 @@ export const DEMO_CARS: Car[] = [
       keylessReady: true,
       fastagActive: true,
     },
+    conditionOptions: DEFAULT_CONDITION_OPTIONS,
+    defaultConditionTier: "mint",
     description:
       "Delhi NCR's favorite everyday SUV with high ground clearance, responsive turbo-petrol engine, panoramic sunroof, and ventilated cooling seats for the hot NCR climate.",
     specs: {
@@ -351,17 +500,17 @@ export const DEMO_CARS: Car[] = [
   },
   {
     id: "homie-car-08",
-    slug: "mahindra-xuv700-luxury-7seater",
-    name: "Mahindra XUV700 AX7 Luxury",
+    slug: "mahindra-scorpio-n-4xplor",
+    name: "Mahindra Scorpio-N Z8L 4Xplor",
     brand: "Mahindra",
-    category: "touring-suv",
-    categoryLabel: "7-Seater Tourer SUV",
-    year: 2024,
-    badgeTag: "7-Seater",
+    category: "adventure-4x4",
+    categoryLabel: "7-Seater Command 4x4",
+    year: 2025,
+    badgeTag: "Big Daddy SUV",
     rating: 4.8,
     reviewsCount: 95,
-    dailyPriceINR: 4999,
-    monthlyPriceINR: 78000,
+    dailyPriceINR: 3899,
+    monthlyPriceINR: 64000,
     hubLocation: "Cyber Hub DLF Phase 2",
     image: "/images/cars/homie_urus_suv.jpg",
     gallery: [
@@ -374,25 +523,27 @@ export const DEMO_CARS: Car[] = [
       keylessReady: true,
       fastagActive: true,
     },
+    conditionOptions: DEFAULT_CONDITION_OPTIONS,
+    defaultConditionTier: "mint",
     description:
-      "Spacious 7-seater road trip master with refined mHawk diesel torque. Ideal for family weekend getaways to Agra, Jaipur, or Rishikesh with maximum road safety.",
+      "The Big Daddy of Indian SUVs with genuine shift-on-fly 4XPLOR terrain modes, commanding seating height, 2.2L mHawk diesel power, and 7 spacious adult seats.",
     specs: {
       rangeOrMileage: "15 KM/L",
-      horsePower: "185 HP",
-      topSpeed: "200 km/h",
+      horsePower: "175 HP",
+      topSpeed: "185 km/h",
       fuelType: "Diesel",
       transmission: "Automatic",
       seats: 7,
       luggageBags: 4,
-      acceleration0to100: "9.3s",
+      acceleration0to100: "9.8s",
     },
     features: [
+      "4XPLOR Intelligent Terrain Modes",
       "Sony 12-Speaker 3D Audio",
-      "Skyroof Panoramic Sunroof",
-      "Dual 10.25-inch HD Screens",
-      "Electronic All-Wheel Drive",
-      "7 Spacious Adult Seats",
+      "Sunroof & Dual-Zone Climate",
+      "High Ground Clearance (205 mm)",
       "Delhi-NCR Fastag Pre-Loaded",
+      "24x7 Roadside Concierge",
     ],
     isAvailableDemo: true,
     agentAssigned: "Agent Rishabh Dua (Cyber Hub Gurugram)",
@@ -401,12 +552,13 @@ export const DEMO_CARS: Car[] = [
 
 export const BRANDS = [
   "All",
+  "Mahindra",
+  "Tata",
+  "Toyota",
   "Aston Martin",
   "Ferrari",
   "Lamborghini",
   "Mercedes-Benz",
   "BMW",
-  "Veloce",
   "Hyundai",
-  "Mahindra",
 ];

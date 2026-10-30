@@ -1,12 +1,10 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import Image from "next/image";
-import { Car } from "@/types/car";
+import { Car, VehicleConditionTier } from "@/types/car";
+import { DEFAULT_CONDITION_OPTIONS } from "@/data/cars";
 import { formatINR, calculateRentalPrice, calculateRentalDays } from "@/lib/formatters";
 import {
-  ArrowLeft,
-  Share2,
   Star,
   Fuel,
   Zap,
@@ -16,12 +14,13 @@ import {
   CheckCircle2,
   Info,
   Sparkles,
-  Camera,
   ShieldCheck,
-  Key,
   BadgeCheck,
   ChevronRight,
+  Sparkle,
 } from "lucide-react";
+import { CarImageCarousel } from "@/components/cars/CarImageCarousel";
+import { CarConditionSelector } from "@/components/cars/CarConditionSelector";
 import { ReservationModal } from "@/components/booking/ReservationModal";
 
 interface CarDetailViewProps {
@@ -41,12 +40,33 @@ export const CarDetailView: React.FC<CarDetailViewProps> = ({
   const [returnDate, setReturnDate] = useState<string>("2026-11-18");
   const [isReserveModalOpen, setIsReserveModalOpen] = useState(false);
 
-  // Multi-angle gallery state
-  const gallery = car.gallery && car.gallery.length > 0
-    ? car.gallery
-    : [{ label: "Exterior View", url: car.image }];
-  const [activeImageIndex, setActiveImageIndex] = useState(0);
-  const currentImage = gallery[activeImageIndex]?.url || car.image;
+  // 3-Tier Condition Selector State
+  const conditionOptions = car.conditionOptions && car.conditionOptions.length > 0
+    ? car.conditionOptions
+    : DEFAULT_CONDITION_OPTIONS;
+
+  const [selectedConditionTier, setSelectedConditionTier] = useState<VehicleConditionTier>(
+    car.defaultConditionTier || "mint"
+  );
+
+  const activeConditionOption = conditionOptions.find(
+    (opt) => opt.tier === selectedConditionTier
+  ) || conditionOptions[1];
+
+  const conditionMultiplier = activeConditionOption.priceMultiplier;
+
+  // Calculate pricing breakdown with condition multiplier
+  const days = calculateRentalDays(pickupDate, returnDate);
+  const pricing = calculateRentalPrice(
+    car.dailyPriceINR,
+    days,
+    conditionMultiplier,
+    selectedConditionTier
+  );
+
+  // Monthly subscription calculations (adjusted for condition tier)
+  const monthlyDiscountedRate = Math.round(pricing.adjustedDailyRate * 30 * 0.75);
+  const quarterlyDiscountedRate = Math.round(monthlyDiscountedRate * 3 * 0.9);
 
   // Sticky bottom bar visibility trigger
   const [showStickyBar, setShowStickyBar] = useState(false);
@@ -56,8 +76,7 @@ export const CarDetailView: React.FC<CarDetailViewProps> = ({
     const handleScroll = () => {
       if (inlineCtaRef.current) {
         const rect = inlineCtaRef.current.getBoundingClientRect();
-        // Show sticky bar when inline CTA is scrolled off-screen or user scrolled past 250px
-        const isPastHeader = window.scrollY > 260;
+        const isPastHeader = window.scrollY > 280;
         const isInlineVisible = rect.top < window.innerHeight && rect.bottom > 0;
         setShowStickyBar(isPastHeader && !isInlineVisible);
       } else {
@@ -70,236 +89,180 @@ export const CarDetailView: React.FC<CarDetailViewProps> = ({
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Calculate pricing breakdown
-  const days = calculateRentalDays(pickupDate, returnDate);
-  const pricing = calculateRentalPrice(car.dailyPriceINR, days);
-
-  // Monthly subscription calculations
-  const monthlyDiscountedRate = Math.round(car.dailyPriceINR * 30 * 0.75);
-  const quarterlyDiscountedRate = Math.round(monthlyDiscountedRate * 3 * 0.9);
-
   return (
     <div className="min-h-screen bg-[#F3F6F1] pb-28">
-      {/* Top Bar with Frosted Glassmorphism */}
-      <div className="sticky top-0 z-30 bg-[#F3F6F1]/85 backdrop-blur-md border-b border-[#E1E8DF]/60 transition-colors">
-        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-          {showBackLink ? (
-            <button
-              type="button"
-              onClick={onBack ? onBack : () => window.history.back()}
-              className="w-10 h-10 rounded-full bg-white/90 backdrop-blur-md border border-[#DFE6DC] flex items-center justify-center text-[#172016] hover:bg-[#EAF0E7] hover:scale-105 active:scale-95 transition-all shadow-sm"
-              aria-label="Go back"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-          ) : (
-            <div className="w-10" />
-          )}
+      {/* 1. Full-Bleed Swipeable Image Carousel (Mobbin Screen 4 reference) */}
+      <CarImageCarousel
+        carName={car.name}
+        gallery={car.gallery || []}
+        fallbackImage={car.image}
+        onBack={onBack}
+        showBackLink={showBackLink}
+      />
 
-          <div className="text-center">
-            <h1 className="text-sm font-bold text-[#172016]">{car.name}</h1>
-            <p className="text-[11px] font-medium text-[#5C6B5A]">Homie Luxury Fleet</p>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              if (navigator.share) {
-                navigator.share({
-                  title: `${car.name} — Homie Drives Delhi NCR`,
-                  url: window.location.href,
-                }).catch(() => {});
-              } else {
-                navigator.clipboard?.writeText(window.location.href);
-                alert("Car listing link copied to clipboard!");
-              }
-            }}
-            className="w-10 h-10 rounded-full bg-white/90 backdrop-blur-md border border-[#DFE6DC] flex items-center justify-center text-[#172016] hover:bg-[#EAF0E7] hover:scale-105 active:scale-95 transition-all shadow-sm"
-            aria-label="Share car details"
-          >
-            <Share2 className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
-      {/* Multi-Angle Interactive Vehicle Gallery Showcase */}
-      <div className="max-w-3xl mx-auto px-4 pt-3 pb-2">
-        <div className="relative w-full aspect-[16/10] sm:aspect-[16/9] rounded-[28px] bg-gradient-to-b from-[#EAEFE8] to-[#DFE7DD] border border-[#D8E2D6] overflow-hidden flex items-center justify-center shadow-homie group">
-          <Image
-            key={currentImage}
-            src={currentImage}
-            alt={`${car.name} - ${gallery[activeImageIndex]?.label || "View"}`}
-            fill
-            priority
-            sizes="(max-width: 768px) 100vw, 800px"
-            className="object-contain p-2 sm:p-4 drop-shadow-2xl transition-all duration-500 ease-out animate-in fade-in zoom-in-95"
-          />
-
-          {/* Current Angle Tag */}
-          <div className="absolute top-3.5 left-3.5 z-10 flex items-center gap-1.5 bg-white/85 backdrop-blur-md px-3 py-1 rounded-full border border-white/60 shadow-sm">
-            <Camera className="w-3.5 h-3.5 text-[#50644E]" />
-            <span className="text-xs font-bold text-[#172016]">
-              {gallery[activeImageIndex]?.label}
-            </span>
-            <span className="text-[10px] text-[#5C6B5A] ml-0.5">
-              ({activeImageIndex + 1}/{gallery.length})
-            </span>
-          </div>
-
-          {/* Telematics Fastag & Keyless Badge overlay */}
-          <div className="absolute top-3.5 right-3.5 z-10 hidden sm:flex items-center gap-1.5 bg-[#50644E]/90 backdrop-blur-md text-white px-2.5 py-1 rounded-full text-[11px] font-semibold shadow-sm">
-            <Key className="w-3 h-3 text-[#D4E0D1]" />
-            <span>Keyless Ready</span>
-          </div>
-        </div>
-
-        {/* Gallery Angle Pills / Thumbnail Switcher */}
-        {gallery.length > 1 && (
-          <div className="flex items-center justify-center gap-2 mt-3 overflow-x-auto no-scrollbar py-1">
-            {gallery.map((item, idx) => {
-              const isSelected = idx === activeImageIndex;
-              return (
-                <button
-                  key={item.label}
-                  type="button"
-                  onClick={() => setActiveImageIndex(idx)}
-                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 cursor-pointer ${
-                    isSelected
-                      ? "bg-[#50644E] text-white shadow-sm scale-[1.02]"
-                      : "bg-white/85 backdrop-blur-md text-[#5C6B5A] hover:bg-white hover:text-[#172016] border border-[#DFE6DC]"
-                  }`}
-                >
-                  <span
-                    className={`w-1.5 h-1.5 rounded-full ${
-                      isSelected ? "bg-emerald-300 animate-pulse" : "bg-[#829280]"
-                    }`}
-                  />
-                  <span>{item.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Live Vehicle Telematics Status Ribbon */}
-        {car.telematicsStatus && (
-          <div className="mt-3 bg-white/80 backdrop-blur-md rounded-2xl p-2.5 border border-[#E1E8DF] flex items-center justify-around gap-2 text-xs text-[#5C6B5A]">
-            <div className="flex items-center gap-1.5">
-              <div className="w-6 h-6 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-700">
-                <Zap className="w-3.5 h-3.5" />
-              </div>
-              <div>
-                <p className="text-[10px] text-[#829280] font-medium leading-none">Level</p>
-                <p className="text-xs font-bold text-[#172016]">
-                  {car.telematicsStatus.fuelOrBatteryPercent}%
-                </p>
-              </div>
-            </div>
-
-            <div className="h-6 w-px bg-[#E1E8DF]" />
-
-            <div className="flex items-center gap-1.5">
-              <div className="w-6 h-6 rounded-full bg-blue-50 flex items-center justify-center text-blue-700">
-                <ShieldCheck className="w-3.5 h-3.5" />
-              </div>
-              <div>
-                <p className="text-[10px] text-[#829280] font-medium leading-none">Hygiene</p>
-                <p className="text-xs font-bold text-[#172016]">
-                  {car.telematicsStatus.sanitizedTimeAgo}
-                </p>
-              </div>
-            </div>
-
-            <div className="h-6 w-px bg-[#E1E8DF]" />
-
-            <div className="flex items-center gap-1.5">
-              <div className="w-6 h-6 rounded-full bg-amber-50 flex items-center justify-center text-amber-700">
-                <BadgeCheck className="w-3.5 h-3.5" />
-              </div>
-              <div>
-                <p className="text-[10px] text-[#829280] font-medium leading-none">Toll Pass</p>
-                <p className="text-xs font-bold text-[#172016]">Delhi FASTag</p>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Curved Bottom Sheet Card */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 mt-3">
-        <div className="bg-white rounded-t-[32px] sm:rounded-[32px] p-6 sm:p-8 shadow-homie border border-[#E8EFE5]">
-          {/* Header Row: Title, Subtitle, Star Rating */}
-          <div className="flex items-start justify-between gap-4 pb-4 border-b border-[#F0F4ED]">
+      {/* 2. Floating Dark Hero Summary Card (Mobbin Screen 4 dark overlay pattern) */}
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 -mt-10 sm:-mt-12 relative z-10">
+        <div className="bg-[#172016] text-white rounded-[28px] p-5 sm:p-7 shadow-[0_20px_48px_rgba(23,32,22,0.28)] border border-[#2A3828]">
+          <div className="flex items-start justify-between gap-3 mb-3">
             <div>
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-[#172016] tracking-tight">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-[#9BB199]">
+                  {car.categoryLabel}
+                </span>
+                <span className="text-white/30">•</span>
+                <span className="text-[11px] text-white/60 font-medium">
+                  {car.year} Model
+                </span>
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white leading-tight">
                 {car.name}
-              </h2>
-              <p className="text-sm font-medium text-[#5C6B5A] mt-0.5">
-                {car.categoryLabel} ({car.year})
-              </p>
-              <p className="text-xs text-[#829280] mt-1 flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse" />
-                <span>Stationed at: <strong>{car.hubLocation}</strong></span>
+              </h1>
+              <p className="text-xs text-white/70 mt-1 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block animate-pulse" />
+                <span>Stationed at: <strong className="text-white">{car.hubLocation}</strong> (Delhi NCR)</span>
               </p>
             </div>
 
-            <div className="inline-flex items-center gap-1 bg-[#FFF9ED] border border-[#FDE68A] text-[#B45309] px-3 py-1.5 rounded-full text-xs font-bold shrink-0 shadow-xs">
-              <Star className="w-4 h-4 fill-amber-400 text-amber-500" />
+            {/* Rating Pill */}
+            <div className="inline-flex items-center gap-1 bg-white/10 backdrop-blur-md border border-white/15 px-3 py-1.5 rounded-full text-xs font-bold shrink-0">
+              <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
               <span>{car.rating.toFixed(1)}</span>
-              <span className="text-[11px] text-[#92400E] font-normal">
+              <span className="text-[11px] text-white/60 font-normal">
                 ({car.reviewsCount})
               </span>
             </div>
           </div>
 
+          {/* Condition Tier Snapshot & Dynamic Price Pill */}
+          <div className="pt-3 border-t border-white/10 flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-white/70">Selected Grade:</span>
+              <span className="inline-flex items-center gap-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-0.5 rounded-full text-xs font-semibold">
+                <Sparkle className="w-3 h-3" />
+                {activeConditionOption.label} ({activeConditionOption.odometerRange})
+              </span>
+            </div>
+
+            <div className="text-right">
+              <span className="text-2xl sm:text-3xl font-black text-white">
+                {formatINR(pricing.adjustedDailyRate)}
+              </span>
+              <span className="text-xs text-white/60 ml-1">/ day</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Main Specifications, Condition Engine & Pricing Container */}
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 mt-4">
+        <div className="bg-white rounded-[32px] p-5 sm:p-8 shadow-homie border border-[#E8EFE5]">
+          {/* Live Telematics Readiness Ribbon */}
+          {car.telematicsStatus && (
+            <div className="mb-4 bg-[#F5F8F4] rounded-2xl p-3 border border-[#E1E8DF] flex items-center justify-around gap-2 text-xs text-[#5C6B5A]">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700">
+                  <Zap className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-[10px] text-[#829280] font-medium leading-none">Power / Tank</p>
+                  <p className="text-xs font-bold text-[#172016]">
+                    {car.telematicsStatus.fuelOrBatteryPercent}% Ready
+                  </p>
+                </div>
+              </div>
+
+              <div className="h-6 w-px bg-[#DFE6DC]" />
+
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center text-blue-700">
+                  <ShieldCheck className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-[10px] text-[#829280] font-medium leading-none">Hygiene</p>
+                  <p className="text-xs font-bold text-[#172016]">
+                    {car.telematicsStatus.sanitizedTimeAgo}
+                  </p>
+                </div>
+              </div>
+
+              <div className="h-6 w-px bg-[#DFE6DC]" />
+
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center text-amber-700">
+                  <BadgeCheck className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-[10px] text-[#829280] font-medium leading-none">Toll Pass</p>
+                  <p className="text-xs font-bold text-[#172016]">Delhi FASTag Active</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Description */}
-          <div className="py-4">
+          <div className="py-2">
             <p className="text-sm text-[#455243] leading-relaxed">
               {car.description}
             </p>
           </div>
 
-          {/* Features / Specs Grid matching Screen 3 olive-tinted cards */}
-          <div className="py-4">
-            <h3 className="text-base font-bold text-[#172016] mb-3">Specifications</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {/* Feature 1: Range / Mileage */}
-              <div className="bg-[#DCE7D9] rounded-2xl p-3.5 flex flex-col justify-between hover:scale-[1.02] transition-transform">
-                <div className="w-8 h-8 rounded-full bg-white/70 flex items-center justify-center text-[#50644E] mb-2">
+          {/* 3-Tier Vehicle Condition Engine (Requested Core Feature) */}
+          <div className="py-2 border-t border-[#F0F4ED]">
+            <CarConditionSelector
+              options={conditionOptions}
+              selectedTier={selectedConditionTier}
+              onSelectTier={setSelectedConditionTier}
+              baseDailyRate={car.dailyPriceINR}
+            />
+          </div>
+
+          {/* Horizontal Specifications Slider (Mobbin horizontal card layout) */}
+          <div className="py-4 border-t border-[#F0F4ED]">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-base font-bold text-[#172016]">
+                Vehicle Specifications
+              </h3>
+              <span className="text-xs text-[#829280] font-medium">Swipe to explore</span>
+            </div>
+
+            <div className="flex items-stretch gap-3 overflow-x-auto no-scrollbar pb-2 -mx-2 px-2 snap-x">
+              {/* Card 1: Range */}
+              <div className="min-w-[150px] sm:min-w-[170px] bg-[#EAF0E7] rounded-2xl p-4 flex flex-col justify-between snap-start border border-[#D8E2D5]">
+                <div className="w-8 h-8 rounded-full bg-white/80 flex items-center justify-center text-[#50644E] mb-2 shadow-xs">
                   <Fuel className="w-4 h-4" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-[#172016]">
+                  <p className="text-sm font-extrabold text-[#172016]">
                     {car.specs.rangeOrMileage}
                   </p>
                   <p className="text-[11px] font-medium text-[#5C6B5A]">
-                    {car.specs.fuelType === "Electric" ? "Full Battery" : "Estimated"}
+                    {car.specs.fuelType} Efficiency
                   </p>
                 </div>
               </div>
 
-              {/* Feature 2: Horse Power */}
-              <div className="bg-[#DCE7D9] rounded-2xl p-3.5 flex flex-col justify-between hover:scale-[1.02] transition-transform">
-                <div className="w-8 h-8 rounded-full bg-white/70 flex items-center justify-center text-[#50644E] mb-2">
+              {/* Card 2: Horsepower */}
+              <div className="min-w-[150px] sm:min-w-[170px] bg-[#EAF0E7] rounded-2xl p-4 flex flex-col justify-between snap-start border border-[#D8E2D5]">
+                <div className="w-8 h-8 rounded-full bg-white/80 flex items-center justify-center text-[#50644E] mb-2 shadow-xs">
                   <Zap className="w-4 h-4" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-[#172016]">
+                  <p className="text-sm font-extrabold text-[#172016]">
                     {car.specs.horsePower}
                   </p>
                   <p className="text-[11px] font-medium text-[#5C6B5A]">
-                    Horse Power
+                    Peak Power
                   </p>
                 </div>
               </div>
 
-              {/* Feature 3: Top Speed */}
-              <div className="bg-[#DCE7D9] rounded-2xl p-3.5 flex flex-col justify-between hover:scale-[1.02] transition-transform">
-                <div className="w-8 h-8 rounded-full bg-white/70 flex items-center justify-center text-[#50644E] mb-2">
+              {/* Card 3: Top Speed */}
+              <div className="min-w-[150px] sm:min-w-[170px] bg-[#EAF0E7] rounded-2xl p-4 flex flex-col justify-between snap-start border border-[#D8E2D5]">
+                <div className="w-8 h-8 rounded-full bg-white/80 flex items-center justify-center text-[#50644E] mb-2 shadow-xs">
                   <Gauge className="w-4 h-4" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-[#172016]">
+                  <p className="text-sm font-extrabold text-[#172016]">
                     {car.specs.topSpeed}
                   </p>
                   <p className="text-[11px] font-medium text-[#5C6B5A]">
@@ -308,17 +271,17 @@ export const CarDetailView: React.FC<CarDetailViewProps> = ({
                 </div>
               </div>
 
-              {/* Feature 4: Seating / Transmission */}
-              <div className="bg-[#DCE7D9] rounded-2xl p-3.5 flex flex-col justify-between hover:scale-[1.02] transition-transform">
-                <div className="w-8 h-8 rounded-full bg-white/70 flex items-center justify-center text-[#50644E] mb-2">
+              {/* Card 4: Cabin & Transmission */}
+              <div className="min-w-[150px] sm:min-w-[170px] bg-[#EAF0E7] rounded-2xl p-4 flex flex-col justify-between snap-start border border-[#D8E2D5]">
+                <div className="w-8 h-8 rounded-full bg-white/80 flex items-center justify-center text-[#50644E] mb-2 shadow-xs">
                   <Users className="w-4 h-4" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-[#172016]">
-                    {car.specs.seats} Seats • {car.specs.transmission}
+                  <p className="text-sm font-extrabold text-[#172016]">
+                    {car.specs.seats} Seats
                   </p>
                   <p className="text-[11px] font-medium text-[#5C6B5A]">
-                    Cabin Layout
+                    {car.specs.transmission} Gearbox
                   </p>
                 </div>
               </div>
@@ -332,7 +295,7 @@ export const CarDetailView: React.FC<CarDetailViewProps> = ({
                 Rental Tenure & Plan
               </h3>
               <span className="text-xs text-[#50644E] font-semibold bg-[#EAF0E7] px-2.5 py-0.5 rounded-full">
-                Flexible Delhi NCR Terms
+                Delhi NCR Hub Return
               </span>
             </div>
 
@@ -375,7 +338,7 @@ export const CarDetailView: React.FC<CarDetailViewProps> = ({
 
           {/* Date Picker Range (for daily/weekend) */}
           {rentalPlan === "daily" ? (
-            <div className="py-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="py-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="bg-[#F8FAF7] border border-[#E8EFE5] rounded-2xl p-3">
                 <label className="text-[11px] font-semibold text-[#5C6B5A] block mb-1 flex items-center gap-1">
                   <Calendar className="w-3.5 h-3.5 text-[#50644E]" />
@@ -418,15 +381,22 @@ export const CarDetailView: React.FC<CarDetailViewProps> = ({
             </div>
           )}
 
-          {/* Transparent Price Breakdown */}
+          {/* Transparent Price Breakdown (Recalculated with Condition) */}
           <div className="py-4 border-t border-[#F0F4ED]">
-            <h3 className="text-base font-bold text-[#172016] mb-3">Rental Price Breakdown</h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-base font-bold text-[#172016]">
+                Transparent Price Breakdown
+              </h3>
+              <span className="text-[11px] font-semibold text-[#50644E] bg-[#EAF0E7] px-2 py-0.5 rounded">
+                Tier: {activeConditionOption.label}
+              </span>
+            </div>
 
             {rentalPlan === "daily" ? (
               <div className="space-y-2.5 text-xs">
                 <div className="flex items-center justify-between text-[#5C6B5A]">
                   <span>
-                    Daily rate × {pricing.days} {pricing.days === 1 ? "day" : "days"}
+                    Daily rate (Tier: {activeConditionOption.label}) × {pricing.days} {pricing.days === 1 ? "day" : "days"}
                   </span>
                   <span className="font-semibold text-[#172016]">
                     {formatINR(pricing.rentalBase)}
@@ -442,7 +412,7 @@ export const CarDetailView: React.FC<CarDetailViewProps> = ({
                   <span className="font-semibold text-emerald-700">₹0</span>
                 </div>
                 <div className="flex items-center justify-between text-[#5C6B5A]">
-                  <span>Service Fee & Platform Tech (5%)</span>
+                  <span>Platform & Service Fee (5%)</span>
                   <span className="font-semibold text-[#172016]">
                     {formatINR(pricing.serviceFee)}
                   </span>
@@ -526,7 +496,7 @@ export const CarDetailView: React.FC<CarDetailViewProps> = ({
               onClick={() => setIsReserveModalOpen(true)}
               className="w-full bg-[#50644E] hover:bg-[#3F503D] active:scale-[0.99] text-white text-base font-bold py-4 rounded-full transition-all duration-200 shadow-homie flex items-center justify-center gap-2 cursor-pointer"
             >
-              <span>Book Now</span>
+              <span>Book Now • {activeConditionOption.label}</span>
               <span className="text-sm font-normal text-[#D4E0D1]">
                 ({formatINR(rentalPlan === "daily" ? pricing.total : monthlyDiscountedRate)})
               </span>
@@ -534,7 +504,7 @@ export const CarDetailView: React.FC<CarDetailViewProps> = ({
             </button>
             <p className="text-[11px] text-center text-[#829280] mt-2.5 flex items-center justify-center gap-1">
               <Info className="w-3.5 h-3.5 text-[#50644E]" />
-              <span>No immediate payment required • Instant reservation preview</span>
+              <span>No immediate payment required • Prototype preview only</span>
             </p>
           </div>
         </div>
@@ -545,8 +515,8 @@ export const CarDetailView: React.FC<CarDetailViewProps> = ({
         <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-2xl border-t border-[#DFE6DC] px-4 py-3 sm:hidden shadow-[0_-12px_32px_rgba(23,32,22,0.14)] transition-all duration-300 animate-in slide-in-from-bottom">
           <div className="flex items-center justify-between gap-3 max-w-md mx-auto">
             <div>
-              <p className="text-[10px] uppercase font-bold tracking-wider text-[#5C6B5A]">
-                {rentalPlan === "daily" ? `${days} Day Rental` : "Subscription"}
+              <p className="text-[10px] uppercase font-bold tracking-wider text-[#5C6B5A] truncate max-w-[150px]">
+                {activeConditionOption.label}
               </p>
               <div className="flex items-baseline gap-1">
                 <span className="text-xl font-black text-[#172016]">
@@ -570,7 +540,7 @@ export const CarDetailView: React.FC<CarDetailViewProps> = ({
         </div>
       )}
 
-      {/* Reservation Preview Modal */}
+      {/* Reservation Preview Modal with Condition Snapshot */}
       {isReserveModalOpen && (
         <ReservationModal
           car={car}
@@ -578,6 +548,8 @@ export const CarDetailView: React.FC<CarDetailViewProps> = ({
           returnDate={returnDate}
           totalINR={rentalPlan === "daily" ? pricing.total : monthlyDiscountedRate}
           planType={rentalPlan}
+          conditionTier={selectedConditionTier}
+          conditionOption={activeConditionOption}
           onClose={() => setIsReserveModalOpen(false)}
         />
       )}

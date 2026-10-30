@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Car } from "@/types/car";
 import { formatINR } from "@/lib/formatters";
-import { Heart, MapPin, Gauge, Fuel, Users, Star } from "lucide-react";
+import { Heart, MapPin, Gauge, Fuel, Users, Star, ShieldCheck } from "lucide-react";
 
 interface CarCardProps {
   car: Car;
@@ -130,6 +130,19 @@ export const CarCard: React.FC<CarCardProps> = ({
             {car.rating.toFixed(1)}
           </span>
         </div>
+
+        {/* Condition Tiers Availability Ribbon */}
+        {car.conditionOptions && car.conditionOptions.length > 0 && (
+          <div className="mt-2.5 flex items-center justify-between bg-[#F8FAF7] px-2.5 py-1.5 rounded-xl border border-[#E3ECE0] text-[11px]">
+            <span className="inline-flex items-center gap-1.5 font-semibold text-[#3D4F3B]">
+              <ShieldCheck className="w-3.5 h-3.5 text-[#50644E]" />
+              3 Condition Grades
+            </span>
+            <span className="text-[#647462] font-medium">
+              From <strong className="text-[#172016] font-bold">{formatINR(Math.round(car.dailyPriceINR * 0.85))}</strong>/d
+            </span>
+          </div>
+        )}
 
         {/* Action Button */}
         <div className="mt-3.5 flex items-center gap-2">

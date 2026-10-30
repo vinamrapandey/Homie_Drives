@@ -52,15 +52,27 @@ The visual design is directly inspired by the modern sage-green luxury reference
 
 ### 4. Vehicle Detail Experience (`/cars/[slug]`)
 - Accessible from car cards and dedicated dynamic route.
-- Matches Screen 3 in reference design:
-  - Studio vehicle showcase.
-  - Curved bottom sheet with rating badge (`★ 4.9`).
-  - Sage-tinted feature cards: Range/Mileage, Horsepower, Top Speed, Transmission & Seats.
-  - Transparent pricing breakdown table (Daily rate × days, Insurance Included, Service fee, 18% GST, Refundable security deposit).
+- **Mobbin Mobile UX Layout**:
+  - Full-bleed studio vehicle showcase powered by **zero-dependency touch-swipe carousel** (`CarImageCarousel.tsx`) with cross-angle photography and pagination dots.
+  - Floating dark summary card overlay (`-mt-10 bg-[#172016] text-white rounded-[28px]`) with car name, rating badge (`★ 4.9`), active condition badge, and dynamic price.
+  - **3-Tier Vehicle Condition Engine** (`CarConditionSelector.tsx`):
+    - **Showroom Pristine** (< 5,000 km, +15% premium)
+    - **Executive Mint** (5,000–25,000 km, standard 1.0x base rate)
+    - **Touring / Value** (25,000–60,000 km, -15% value discount)
+  - Sage-tinted horizontal swipeable feature cards: Range/Mileage, Horsepower, Top Speed, Transmission & Seats.
+  - Real-time transparent pricing breakdown table dynamically reflecting the active condition multiplier (Daily rate × days, Insurance Included, Service fee, 18% GST, Category-fixed security deposit).
   - Flexible rental tenure selector (Daily/Weekend vs. 1-Month vs. 3–6 Month Subscription).
-  - "Book Now" CTA triggering the **Demo Reservation Preview Modal** with disclaimer.
+  - Sticky mobile booking bar with condition tier indicator and "Book Now" CTA triggering the **Demo Reservation Preview Modal** with certified condition check verification.
 
-### 5. Customer Profile (`/profile`)
+### 5. Domestic Indian Fleet Expansion
+- Curated high-demand Indian market vehicles:
+  - **Mahindra Thar Roxx 4x4** (Adventure Off-Roader, ₹4,499/day)
+  - **Tata Nexon EV Empowered+ LR** (Urban Electric Crossover, ₹2,699/day)
+  - **Mahindra Scorpio-N 4Xplor** (Touring Power SUV, ₹3,899/day)
+  - **Toyota Innova HyCross Hybrid** (7-Seater Luxury Lounge, ₹5,499/day)
+- Realistic Delhi NCR pricing, Fastag inclusion, and hub assignments across Aerocity, Gurugram, CP, and Noida.
+
+### 6. Customer Profile (`/profile`)
 - Account details placeholder (*Arjun Sharma, Delhi NCR*).
 - Driver verification status placeholder (*DL & Aadhaar DigiLocker verification coming in Phase 2*).
 - Rental history record linked to the digital pass.

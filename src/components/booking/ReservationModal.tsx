@@ -3,9 +3,9 @@
 import React, { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Car } from "@/types/car";
+import { Car, VehicleConditionTier, VehicleConditionOption } from "@/types/car";
 import { formatINR, formatDate } from "@/lib/formatters";
-import { X, CheckCircle, AlertCircle, Calendar, MapPin, ArrowRight } from "lucide-react";
+import { X, CheckCircle, AlertCircle, Calendar, MapPin, ArrowRight, ShieldCheck, Sparkles } from "lucide-react";
 
 interface ReservationModalProps {
   car: Car;
@@ -13,6 +13,8 @@ interface ReservationModalProps {
   returnDate: string;
   totalINR: number;
   planType: string;
+  conditionTier?: VehicleConditionTier;
+  conditionOption?: VehicleConditionOption;
   onClose: () => void;
 }
 
@@ -22,9 +24,17 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
   returnDate,
   totalINR,
   planType,
+  conditionTier = "mint",
+  conditionOption,
   onClose,
 }) => {
   const [step, setStep] = useState<"review" | "confirmed">("review");
+
+  // Determine active condition option
+  const activeCondition =
+    conditionOption ||
+    car.conditionOptions?.find((opt) => opt.tier === conditionTier) ||
+    car.conditionOptions?.[1];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
@@ -52,7 +62,7 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
             </p>
 
             {/* Selected Car Capsule */}
-            <div className="flex items-center gap-3 bg-[#F8FAF7] border border-[#E8EFE5] p-3 rounded-2xl mb-4">
+            <div className="flex items-center gap-3 bg-[#F8FAF7] border border-[#E8EFE5] p-3 rounded-2xl mb-3">
               <div className="relative w-20 h-14 bg-white rounded-xl overflow-hidden shrink-0 border border-[#E8EFE5]">
                 <Image
                   src={car.image}
@@ -61,18 +71,35 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
                   className="object-contain p-1"
                 />
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <h4 className="font-bold text-sm text-[#172016] truncate">
                   {car.name}
                 </h4>
                 <p className="text-xs text-[#5C6B5A]">
                   {car.specs.fuelType} • {car.specs.transmission} • {car.specs.seats} Seats
                 </p>
-                <p className="text-xs font-semibold text-[#50644E] mt-0.5">
-                  {formatINR(car.dailyPriceINR)} / day
-                </p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#3D4F3B] bg-[#EAF0E7] px-2 py-0.5 rounded-md border border-[#D5E2D1]">
+                    <ShieldCheck className="w-3 h-3 text-[#50644E]" />
+                    {activeCondition?.label || "Executive Mint"}
+                  </span>
+                  <span className="text-[11px] font-semibold text-[#50644E]">
+                    {formatINR(activeCondition ? Math.round(car.dailyPriceINR * activeCondition.priceMultiplier) : car.dailyPriceINR)}/d
+                  </span>
+                </div>
               </div>
             </div>
+
+            {/* Condition Verification Guarantee */}
+            {activeCondition && (
+              <div className="flex items-start gap-2 bg-[#F4F8F3] border border-[#DEE9DC] p-2.5 rounded-xl text-xs text-[#3D4F3B] mb-3">
+                <Sparkles className="w-3.5 h-3.5 text-[#50644E] shrink-0 mt-0.5" />
+                <div className="text-[11px] leading-tight">
+                  <strong className="text-[#172016]">Condition Grade Verified:</strong>{" "}
+                  <span>{activeCondition.cosmeticDescription} ({activeCondition.odometerRange}). Pre-trip 360° inspection recorded at hub before keyless handover.</span>
+                </div>
+              </div>
+            )}
 
             {/* Trip Itinerary Specs */}
             <div className="space-y-2.5 bg-[#F8FAF7] p-4 rounded-2xl border border-[#E8EFE5] text-xs mb-4">
@@ -147,6 +174,9 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
               </p>
               <p>
                 <strong>Vehicle:</strong> {car.name}
+              </p>
+              <p>
+                <strong>Condition Grade:</strong> {activeCondition?.label || "Executive Mint"} ({activeCondition?.odometerRange || "5,000 - 25,000 km"})
               </p>
               <p>
                 <strong>Handover Hub:</strong> {car.hubLocation}

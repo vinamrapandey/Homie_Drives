@@ -5,7 +5,22 @@ export type CarCategory =
   | "luxury-sedan"
   | "performance-suv"
   | "city-ev"
-  | "touring-suv";
+  | "touring-suv"
+  | "adventure-4x4"
+  | "family-tourer";
+
+export type VehicleConditionTier = "pristine" | "mint" | "touring";
+
+export interface VehicleConditionOption {
+  tier: VehicleConditionTier;
+  label: string;
+  badge: string;
+  odometerRange: string;
+  cosmeticDescription: string;
+  priceMultiplier: number; // 1.15 for pristine, 1.0 for mint, 0.85 for touring
+  inspectionStatus: string;
+  popularFor: string;
+}
 
 export interface CarSpecs {
   rangeOrMileage: string;
@@ -53,6 +68,22 @@ export interface Car {
   isAvailableDemo: boolean;
   agentAssigned: string;
   telematicsStatus?: TelematicsStatus;
+  conditionOptions?: VehicleConditionOption[];
+  defaultConditionTier?: VehicleConditionTier;
+}
+
+export interface RentalPriceBreakdown {
+  days: number;
+  conditionTier: VehicleConditionTier;
+  conditionMultiplier: number;
+  baseDailyRate: number;
+  adjustedDailyRate: number;
+  rentalBase: number;
+  insurance: number;
+  serviceFee: number;
+  gst: number;
+  securityDeposit: number;
+  total: number;
 }
 
 export interface CarFiltersState {

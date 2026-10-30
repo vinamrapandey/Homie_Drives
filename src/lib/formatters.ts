@@ -1,3 +1,5 @@
+import { VehicleConditionTier } from "@/types/car";
+
 /**
  * Format number into Indian Rupee (INR) currency string
  * e.g., 12000 => "₹12,000", 2499 => "₹2,499"
@@ -44,18 +46,27 @@ export function calculateRentalDays(pickupDate: string, returnDate: string): num
 }
 
 /**
- * Calculate rental price breakdown for demo purposes
+ * Calculate rental price breakdown with condition tier adjustments
  */
-export function calculateRentalPrice(dailyRate: number, days: number = 1) {
-  const rentalBase = dailyRate * days;
+export function calculateRentalPrice(
+  dailyRate: number,
+  days: number = 1,
+  conditionMultiplier: number = 1.0,
+  conditionTier: VehicleConditionTier = "mint"
+) {
+  const adjustedDailyRate = Math.round(dailyRate * conditionMultiplier);
+  const rentalBase = adjustedDailyRate * days;
   const insurance = 0; // Comprehensive insurance included in Homie Drives
   const serviceFee = Math.round(rentalBase * 0.05); // 5% platform fee
   const gst = Math.round(rentalBase * 0.18); // 18% GST in India
-  const securityDeposit = dailyRate > 10000 ? 15000 : 5000; // Refundable deposit
+  const securityDeposit = dailyRate > 10000 ? 15000 : 5000; // Refundable deposit standardized by vehicle class
   const total = rentalBase + serviceFee + gst;
 
   return {
     dailyRate,
+    adjustedDailyRate,
+    conditionMultiplier,
+    conditionTier,
     days,
     rentalBase,
     insurance,
