@@ -18,6 +18,7 @@ import {
   BadgeCheck,
   ChevronRight,
   Sparkle,
+  MoreHorizontal,
 } from "lucide-react";
 import { CarImageCarousel } from "@/components/cars/CarImageCarousel";
 import { CarConditionSelector } from "@/components/cars/CarConditionSelector";
@@ -123,13 +124,24 @@ export const CarDetailView: React.FC<CarDetailViewProps> = ({
               </p>
             </div>
 
-            {/* Rating Pill */}
-            <div className="inline-flex items-center gap-1 bg-white/10 backdrop-blur-md border border-white/15 px-3 py-1.5 rounded-full text-xs font-bold shrink-0">
-              <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-              <span>{car.rating.toFixed(1)}</span>
-              <span className="text-[11px] text-white/60 font-normal">
-                ({car.reviewsCount})
-              </span>
+            {/* Action Buttons & Rating Pill matching Screen 4 */}
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsReserveModalOpen(true)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 border border-white/15 flex items-center justify-center text-white transition-all cursor-pointer shadow-2xs"
+                aria-label="Inspect vehicle and condition snapshot"
+                title="Inspect vehicle & condition"
+              >
+                <MoreHorizontal className="w-4 h-4" />
+              </button>
+              <div className="inline-flex items-center gap-1 bg-white/10 backdrop-blur-md border border-white/15 px-3 py-1.5 rounded-full text-xs font-bold">
+                <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+                <span>{car.rating.toFixed(1)}</span>
+                <span className="text-[11px] text-white/60 font-normal">
+                  ({car.reviewsCount})
+                </span>
+              </div>
             </div>
           </div>
 
@@ -219,10 +231,15 @@ export const CarDetailView: React.FC<CarDetailViewProps> = ({
           {/* Horizontal Specifications Slider (Mobbin horizontal card layout) */}
           <div className="py-4 border-t border-[#F0F4ED]">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-base font-bold text-[#172016]">
-                Vehicle Specifications
-              </h3>
-              <span className="text-xs text-[#829280] font-medium">Swipe to explore</span>
+              <div>
+                <h3 className="text-base font-bold text-[#172016]">
+                  How to drive • Specifications
+                </h3>
+                <p className="text-[11px] text-[#829280]">
+                  Engineered performance, efficiency &amp; cabin credentials
+                </p>
+              </div>
+              <span className="text-xs text-[#829280] font-medium hidden sm:inline-block">Swipe to explore →</span>
             </div>
 
             <div className="flex items-stretch gap-3 overflow-x-auto no-scrollbar pb-2 -mx-2 px-2 snap-x">

@@ -50,11 +50,11 @@ export const Logo: React.FC<LogoProps> = ({ className = "", size = "md", dark = 
 
       <div className="flex flex-col leading-none">
         <span
-          className={`font-black tracking-tight uppercase font-sans ${textSizes[size]} ${
+          className={`font-black tracking-tight font-sans ${textSizes[size]} ${
             dark ? "text-white" : "text-[#172016]"
           }`}
         >
-          HOMIE<span className="text-[#50644E]">DRIVES</span>
+          homie<span className="text-[#50644E]">.</span>
         </span>
         <span
           className={`text-[9px] uppercase tracking-widest font-semibold ${
