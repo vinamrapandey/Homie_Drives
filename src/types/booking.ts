@@ -34,6 +34,36 @@ export interface RentalPassDemo {
   securityCode: string;
 }
 
+export interface DamageProtectionPlan {
+  id: "basic" | "premium" | "super";
+  name: string;
+  badge: string;
+  dailyRateINR: number;
+  excessLiabilityINR: number;
+  highlights: string[];
+  isRecommended?: boolean;
+}
+
+export interface DigiLockerKycRecord {
+  dlNumber: string;
+  driverName: string;
+  dob: string;
+  age: number;
+  licenseClass: string;
+  rtoAuthority: string;
+  validUntil: string;
+  verifiedAt: string;
+  isAgeEligible: boolean;
+  status: "verified" | "pending" | "unverified";
+}
+
+export interface RoadTripPitstop {
+  name: string;
+  type: "food" | "ev-charging" | "fuel" | "rest";
+  location: string;
+  distanceKm: number;
+}
+
 export interface RoadTripPlan {
   id: string;
   destination: string;
@@ -44,4 +74,11 @@ export interface RoadTripPlan {
   suggestedDuration: string;
   recommendedCarCategory: string;
   highlights: string[];
+  expresswayName?: string;
+  oneWayTollINR?: number;
+  returnTollINR?: number;
+  estFuelOrChargeCostINR?: number;
+  fastagLaneActive?: boolean;
+  pitstops?: RoadTripPitstop[];
+  matchedCarSlug?: string;
 }
