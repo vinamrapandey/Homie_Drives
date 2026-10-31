@@ -140,3 +140,4 @@ ON CONFLICT (slug) DO UPDATE SET
     name = EXCLUDED.name,
     base_daily_price_inr = EXCLUDED.base_daily_price_inr,
     operational_status = EXCLUDED.operational_status;
+
