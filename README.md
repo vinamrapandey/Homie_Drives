@@ -33,22 +33,31 @@ The visual design is directly inspired by the modern sage-green luxury reference
 - Featured car showcase and platform benefits.
 
 ### 2. Plan Experience (`/plan`)
-- **Trips Tab**:
-  - Starting hub in Delhi NCR and getaway destinations (Jaipur, Agra, Rishikesh, Chandigarh, Neemrana).
-  - Prototype route preview with distance, estimated drive time, and vehicle category match.
-  - Clear roadmap disclaimer explaining live fuel calculations and tolls will be integrated in subsequent phases.
-- **Cars Tab**:
-  - Reusable vehicle listing component.
+- **Trips Tab (`TripsTab.tsx`)**:
+  - Interactive Delhi NCR road trip getaway explorer (Jaipur via Delhi-Mumbai Expressway, Agra via Yamuna Expressway, Rishikesh via Delhi-Dehradun Expressway, Chandigarh via NH-44, Neemrana Heritage Drive).
+  - **Live Highway Toll & Fuel/Energy Calculator**:
+    - Real-time toll estimates (`FASTag` integrated rates per expressway).
+    - Fuel & EV energy cost calculator supporting both **Round-Trip** (2x) and **One-Way** itineraries.
+    - Curated highway pitstops categorized into Dining/Food, EV DC Fast Charging, Fuel stations, and Scenic Rest Stops.
+  - **1-Click Fleet Matching**: Direct vehicle assignment matching the terrain (e.g., Thar Roxx for Rishikesh, Innova HyCross for Jaipur, Nexon EV for Neemrana) with instant checkout modal launch.
+- **Cars Tab (`CarsTab.tsx`)**:
+  - Reusable vehicle listing component with condition tags (`3 Condition Grades`).
   - Practical filters for price tiers (Under ₹5k, ₹5k–₹10k, ₹10k+), fuel types (Petrol, Diesel, EV, Hybrid), transmission (Automatic, Manual), and seating capacity (4, 5, 7 seats).
-  - Brand filter pills matching the reference design (*Aston Martin, Ferrari, Lamborghini, Mercedes-Benz, BMW, Veloce, Hyundai, Mahindra*).
+  - Brand filter pills matching the reference design (*Aston Martin, Ferrari, Lamborghini, Mercedes-Benz, BMW, Veloce, Hyundai, Mahindra, Tata, Toyota*).
 
 ### 3. Ride Experience (`/ride`)
 - **Book Tab**:
   - Availability-oriented car-listing layout with hub location selection and date/time filters.
-  - Clearly identified sample availability mode.
-- **Pass Tab**:
-  - Interactive toggle between a representative **Sample Demo Pass** and an **Empty State View**.
-  - Digital pass displays simulated booking ref `#HD-DEL-8924`, QR code mockup, PIN `8924`, handover hub, and assigned agent contact (*Kabir Mehta*).
+  - Quick access to reserve any fleet model across Delhi NCR hubs.
+- **Live Digital Pass & Keyless Smart Access (`PassTab.tsx`)**:
+  - Full cross-page reactive synchronization via `useSyncExternalStore` and `localStorage` (`passStorage.ts`).
+  - **Keyless Smart Remote Fob Simulator**:
+    - Interactive **Door Lock / Unlock** with audible chirp and immobilizer status toggle.
+    - **Cabin Climate Pre-Conditioning**: Remote AC pre-cooling to 21°C with PM2.5 air purifier indicator.
+    - **Hazard Locator Flasher**: 4-second synchronized visual flashing indicator for locating car at busy hubs/parking lots.
+  - **Dispatch QR Scanner**: Tap-to-expand full-screen QR code and 4-digit PIN (`8924`) for agent handover.
+  - **Live FASTag Wallet & Odometer Telematics**: Real-time balance inspection, toll recharge shortcut, and pre-trip inspection audit certificate.
+  - **Recent Booking Archive**: Switch between active and past completed trips directly from the pass view.
 
 ### 4. Vehicle Detail Experience (`/cars/[slug]`)
 - Accessible from car cards and dedicated dynamic route.
@@ -62,9 +71,23 @@ The visual design is directly inspired by the modern sage-green luxury reference
   - Sage-tinted horizontal swipeable feature cards: Range/Mileage, Horsepower, Top Speed, Transmission & Seats.
   - Real-time transparent pricing breakdown table dynamically reflecting the active condition multiplier (Daily rate × days, Insurance Included, Service fee, 18% GST, Category-fixed security deposit).
   - Flexible rental tenure selector (Daily/Weekend vs. 1-Month vs. 3–6 Month Subscription).
-  - Sticky mobile booking bar with condition tier indicator and "Book Now" CTA triggering the **Demo Reservation Preview Modal** with certified condition check verification.
+  - Sticky mobile booking bar with condition tier indicator and "Book Now" CTA triggering the **4-Step Reservation Drawer**.
 
-### 5. Domestic Indian Fleet Expansion
+### 5. 4-Step Reservation & DigiLocker KYC Checkout (`ReservationModal.tsx`)
+- **Step 1: Rental Hub & Timing**: Configure pickup and drop-off hubs, dates, and times.
+- **Step 2: Damage Protection Coverage**:
+  - Standard Basic (Zero additional cost, ₹15,000 deductible cap).
+  - Premium Zero-Dep (₹499/day, ₹2,500 deductible cap, windshield/tyres covered).
+  - VIP Super Shield (₹899/day, ₹0 liability, 24/7 personal concierge).
+- **Step 3: Driver Government Verification (DigiLocker KYC)**:
+  - Simulated 1-click Indian Driving License & Aadhaar e-KYC instant authentication.
+  - Verified credentials pre-fill with authentic Digilocker seal.
+  - FASTag convenience buffer pre-load (₹500 / ₹1,000 / ₹1,500).
+- **Step 4: Summary & Instant Digital Pass Generation**:
+  - Itemized pricing breakdown with GST (18%), refundable deposit, and damage cover.
+  - Automatic persistent pass generation and seamless redirect to `/ride?tab=pass`.
+
+### 6. Domestic Indian Fleet Expansion
 - Curated high-demand Indian market vehicles:
   - **Mahindra Thar Roxx 4x4** (Adventure Off-Roader, ₹4,499/day)
   - **Tata Nexon EV Empowered+ LR** (Urban Electric Crossover, ₹2,699/day)
@@ -72,10 +95,10 @@ The visual design is directly inspired by the modern sage-green luxury reference
   - **Toyota Innova HyCross Hybrid** (7-Seater Luxury Lounge, ₹5,499/day)
 - Realistic Delhi NCR pricing, Fastag inclusion, and hub assignments across Aerocity, Gurugram, CP, and Noida.
 
-### 6. Customer Profile (`/profile`)
-- Account details placeholder (*Arjun Sharma, Delhi NCR*).
-- Driver verification status placeholder (*DL & Aadhaar DigiLocker verification coming in Phase 2*).
-- Rental history record linked to the digital pass.
+### 7. Customer Profile (`/profile`)
+- Account details (*Arjun Sharma, Delhi NCR*).
+- **DigiLocker Smart Card Viewer**: Interactive modal rendering authentic Ministry of Road Transport & Highways driving license smart card with QR verification code.
+- Live sync with active rental pass and FASTag account status.
 - Standard rental documents and agreements overview.
 - 24x7 Delhi NCR roadside assistance concierge & FAQs.
 
@@ -149,10 +172,9 @@ Preview at **[http://localhost:3000](http://localhost:3000)**.
 
 ---
 
-## ⚠️ Known Limitations & Scope Boundaries (Phase 1)
+## ⚠️ Architecture Boundaries & Operational Assumptions
 
-As specified in Phase 1 requirements:
-- **No live booking engine or database**: Vehicle inventory and status are typed demo data.
-- **No live payment gateway**: Clicking "Book Now" opens a prototype preview modal explaining that live payments and DigiLocker KYC are coming in Phase 2.
-- **No external maps SDK or GPS integration**: Route distances and times on the Trips tab are curated regional estimates.
-- **Same pickup and return**: Initial fleet operations require vehicle return to the original pickup hub in Delhi NCR.
+- **Persistent Client-Side State**: Vehicle checkout, condition grading, DigiLocker credentials, and digital pass keyless controls synchronize across views via `useSyncExternalStore` and browser `localStorage`.
+- **Pre-Configured Fleet Inventory**: Vehicle models, pricing tiers, and hubs are strongly typed in `src/data/` for rapid zero-latency client rendering.
+- **DigiLocker & FASTag Integration**: Government driver license verification and toll buffer preloading are interactive simulations adhering to DigiLocker and FASTag NPCI UX specifications.
+- **Same Hub Return Operations**: Fleet turnaround operates on round-trip hub allocation across major Delhi NCR logistics nodes (Aerocity IGI, Cyber Hub Gurugram, Connaught Place, Noida Sector 18).
