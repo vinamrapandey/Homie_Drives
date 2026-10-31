@@ -9,6 +9,9 @@ import { Car } from "@/types/car";
  */
 export async function getHubLocations(): Promise<LocationHub[]> {
   try {
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      return DELHI_NCR_LOCATIONS;
+    }
     const supabase = createClient();
     const { data, error } = await supabase
       .from("pickup_locations")
@@ -37,6 +40,9 @@ export async function getHubLocations(): Promise<LocationHub[]> {
  */
 export async function getVehicles(): Promise<Car[]> {
   try {
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      return DEMO_CARS;
+    }
     const supabase = createClient();
     const { data, error } = await supabase
       .from("vehicles")

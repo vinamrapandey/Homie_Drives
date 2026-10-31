@@ -6,8 +6,14 @@ import { createClient } from "@supabase/supabase-js";
  * CRITICAL RULE: Never import or call this on the client side or in public components.
  */
 export function createAdminClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://ppcdpxpjoabbuctnvnko.supabase.co";
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl) {
+    throw new Error(
+      "NEXT_PUBLIC_SUPABASE_URL is required but is not defined in the environment."
+    );
+  }
 
   if (!serviceRoleKey) {
     throw new Error(
