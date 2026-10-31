@@ -146,6 +146,16 @@ src/
 
 ---
 
+## 🌐 Public Live Deployment
+
+* **Production URL**: **[https://homie-drives.vercel.app](https://homie-drives.vercel.app)**
+* **Hosting Platform**: Vercel (Global Edge Network with primary Mumbai `bom1` POP routing)
+* **CI/CD Integration**: Linked to GitHub repository [`https://github.com/vinamrapandey/Homie_Drives`](https://github.com/vinamrapandey/Homie_Drives)
+* **Framework**: Next.js 16 (App Router with Webpack production engine)
+* **SSL / TLS**: Automatic HTTPS enabled with HTTP/2 and modern cipher suites
+
+---
+
 ## ⚡ Getting Started Locally
 
 ### Prerequisites
