@@ -2,8 +2,10 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { useActivePass } from "@/lib/passStorage";
+import { useRouter } from "next/navigation";
+import { useActivePass, saveActivePass } from "@/lib/passStorage";
 import { useAuth } from "@/lib/supabase/auth";
+import { useUserBookings, mapBookingToActivePass } from "@/lib/supabase/bookings";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { formatINR } from "@/lib/formatters";
 import {
@@ -21,9 +23,12 @@ import {
   LogIn,
   LogOut,
   Sparkles,
+  Cloud,
+  ChevronRight,
 } from "lucide-react";
 
 export default function ProfilePage() {
+  const router = useRouter();
   const [activeSubSection, setActiveSubSection] = useState<
     "overview" | "rentals" | "documents" | "support" | "settings"
   >("overview");
@@ -31,6 +36,7 @@ export default function ProfilePage() {
   const [showKycModal, setShowKycModal] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const { user, signOut } = useAuth();
+  const { bookings, loading: bookingsLoading } = useUserBookings();
 
   const userInitials = user?.email
     ? user.email.slice(0, 2).toUpperCase()
@@ -187,59 +193,137 @@ export default function ProfilePage() {
       {activeSubSection === "overview" && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-base font-bold text-[#172016]">Active Rental Pass &amp; History</h3>
-            <span className="text-xs text-[#50644E] font-medium">1 Live Pass Active</span>
+            <h3 className="text-base font-bold text-[#172016] flex items-center gap-1.5">
+              <span>Rental Passes &amp; Bookings</span>
+              {user && (
+                <span className="text-[10px] bg-[#EAF0E7] text-[#50644E] px-2 py-0.5 rounded-full font-bold">
+                  Supabase Live Sync
+                </span>
+              )}
+            </h3>
+            <span className="text-xs text-[#50644E] font-medium">
+              {user ? `${bookings.length} Cloud Booking${bookings.length === 1 ? "" : "s"}` : "1 Demo Pass Active"}
+            </span>
           </div>
 
-          {/* Active Booking Card */}
-          <div className="bg-white rounded-2xl p-5 border border-[#E8EFE5] shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-[#EAF0E7] text-[#50644E] flex items-center justify-center shrink-0">
-                <Car className="w-6 h-6" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h4 className="font-bold text-sm text-[#172016]">
-                    {activePass ? activePass.carName : "Aston Martin Vantage V8"}
-                  </h4>
-                  <span className="text-[10px] bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded-full">
-                    {activePass?.carLocked ? "Ready at Hub" : "Unlocked • In Trip"}
-                  </span>
+          {/* If user is signed in and has live Supabase bookings */}
+          {user && bookings.length > 0 ? (
+            <div className="space-y-3">
+              {bookings.map((booking) => {
+                const pass = mapBookingToActivePass(booking, user.email);
+                const statusLabels: Record<string, { label: string; color: string }> = {
+                  pending_pickup: { label: "Pending Pickup at Hub", color: "bg-amber-100 text-amber-800" },
+                  verified_handover: { label: "OTP Verified • Key Handed", color: "bg-blue-100 text-blue-800" },
+                  active_rental: { label: "Active Rental • In Trip", color: "bg-emerald-100 text-emerald-800" },
+                  returned_inspected: { label: "Returned • Inspection Passed", color: "bg-purple-100 text-purple-800" },
+                  closed: { label: "Completed & Closed", color: "bg-gray-100 text-gray-800" },
+                  cancelled: { label: "Cancelled", color: "bg-red-100 text-red-800" },
+                };
+                const statusMeta = statusLabels[booking.status] || {
+                  label: booking.status,
+                  color: "bg-gray-100 text-gray-800",
+                };
+
+                return (
+                  <div
+                    key={booking.id}
+                    className="bg-white rounded-2xl p-5 border border-[#E8EFE5] shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all hover:border-[#CAD8C6]"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-xl bg-[#EAF0E7] text-[#50644E] flex items-center justify-center shrink-0">
+                        <Car className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-bold text-sm text-[#172016]">
+                            {booking.vehicles?.name || "Homie Vehicle"}
+                          </h4>
+                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${statusMeta.color}`}>
+                            {statusMeta.label}
+                          </span>
+                        </div>
+                        <p className="text-xs text-[#5C6B5A] mt-0.5">
+                          {pass.pickupDate} – {pass.returnDate} ({pass.days} Days) • {pass.pickupLocation}
+                        </p>
+                        <p className="text-[11px] text-[#829280]">
+                          Booking Ref:{" "}
+                          <strong className="font-mono text-[#172016]">{booking.booking_code}</strong> • Pickup OTP:{" "}
+                          <span className="font-mono font-bold text-[#50644E]">{booking.pickup_otp_hash || "8924"}</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                      <span className="font-extrabold text-sm text-[#172016]">
+                        {formatINR(booking.total_amount_inr)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          saveActivePass(pass);
+                          router.push("/ride?tab=pass");
+                        }}
+                        className="bg-[#50644E] text-white text-xs font-semibold px-3 py-1.5 rounded-xl hover:bg-[#3F503D] transition-colors cursor-pointer flex items-center gap-1"
+                      >
+                        <span>Open Pass</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            /* Active Demo / Fallback Card */
+            <div className="bg-white rounded-2xl p-5 border border-[#E8EFE5] shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-[#EAF0E7] text-[#50644E] flex items-center justify-center shrink-0">
+                  <Car className="w-6 h-6" />
                 </div>
-                <p className="text-xs text-[#5C6B5A] mt-0.5">
-                  {activePass
-                    ? `${activePass.pickupDate} – ${activePass.returnDate} (${activePass.days} Days)`
-                    : "14 Nov 2026 – 17 Nov 2026 (3 Days)"}{" "}
-                  • {activePass?.pickupLocation || "Aerocity Hub"}
-                </p>
-                <p className="text-[11px] text-[#829280]">
-                  Booking Ref:{" "}
-                  <strong className="font-mono text-[#172016]">
-                    {activePass?.bookingRef || "#HD-DEL-8924"}
-                  </strong>{" "}
-                  • Reg:{" "}
-                  <span className="font-mono">
-                    {activePass?.registrationNumber || "DL-01-HD-2025"}
-                  </span>
-                </p>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-bold text-sm text-[#172016]">
+                      {activePass ? activePass.carName : "Aston Martin Vantage V8"}
+                    </h4>
+                    <span className="text-[10px] bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded-full">
+                      {activePass?.carLocked ? "Ready at Hub" : "Unlocked • In Trip"}
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#5C6B5A] mt-0.5">
+                    {activePass
+                      ? `${activePass.pickupDate} – ${activePass.returnDate} (${activePass.days} Days)`
+                      : "14 Nov 2026 – 17 Nov 2026 (3 Days)"}{" "}
+                    • {activePass?.pickupLocation || "Aerocity Hub"}
+                  </p>
+                  <p className="text-[11px] text-[#829280]">
+                    Booking Ref:{" "}
+                    <strong className="font-mono text-[#172016]">
+                      {activePass?.bookingRef || "#HD-DEL-8924"}
+                    </strong>{" "}
+                    • Reg:{" "}
+                    <span className="font-mono">
+                      {activePass?.registrationNumber || "DL-01-HD-2025"}
+                    </span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                <span className="font-extrabold text-sm text-[#172016]">
+                  {activePass ? formatINR(activePass.totalPaidINR) : "₹67,497"} Total
+                </span>
+                <Link
+                  href="/ride?tab=pass"
+                  className="bg-[#50644E] text-white text-xs font-semibold px-3 py-1.5 rounded-xl hover:bg-[#3F503D] transition-colors"
+                >
+                  View Live Pass →
+                </Link>
               </div>
             </div>
-
-            <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
-              <span className="font-extrabold text-sm text-[#172016]">
-                {activePass ? formatINR(activePass.totalPaidINR) : "₹67,497"} Total
-              </span>
-              <Link
-                href="/ride?tab=pass"
-                className="bg-[#50644E] text-white text-xs font-semibold px-3 py-1.5 rounded-xl hover:bg-[#3F503D] transition-colors"
-              >
-                View Live Pass →
-              </Link>
-            </div>
-          </div>
+          )}
 
           <div className="p-5 bg-white rounded-2xl border border-dashed border-[#DFE6DC] text-center text-xs text-[#829280]">
-            Past completed trips will be archived here with downloadable GST invoices and mileage summaries.
+            Past completed trips are stored in your encrypted audit ledger with downloadable GST invoices and check-out video inspections.
           </div>
         </div>
       )}

@@ -10,6 +10,9 @@ import {
   usePassArchive,
 } from "@/lib/passStorage";
 import { formatINR } from "@/lib/formatters";
+import { useAuth } from "@/lib/supabase/auth";
+import { useUserBookings, mapBookingToActivePass } from "@/lib/supabase/bookings";
+import { AuthModal } from "@/components/auth/AuthModal";
 import {
   Ticket,
   QrCode,
@@ -29,6 +32,9 @@ import {
   Maximize2,
   X,
   CreditCard,
+  Cloud,
+  Sparkles,
+  UserCheck,
 } from "lucide-react";
 
 export const PassTab: React.FC = () => {
@@ -36,6 +42,11 @@ export const PassTab: React.FC = () => {
   const activePass = useActivePass();
   const passArchive = usePassArchive();
   const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  // Supabase Auth and Live Cloud Bookings
+  const { user } = useAuth();
+  const { bookings, loading: bookingsLoading } = useUserBookings();
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   // Keyless Fob Local UI State
   const [isHazardFlashing, setIsHazardFlashing] = useState(false);
@@ -133,11 +144,64 @@ export const PassTab: React.FC = () => {
           </div>
         </div>
 
+        {/* Live Supabase Bookings for Authenticated User */}
+        {user && bookings.length > 0 && (
+          <div className="pt-2 border-t border-[#F0F4ED] text-xs space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-[#50644E] flex items-center gap-1">
+                <Cloud className="w-3.5 h-3.5" />
+                <span>Your Supabase Bookings ({bookings.length}):</span>
+              </span>
+              <span className="text-[10px] text-[#829280]">Live Database Sync</span>
+            </div>
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+              {bookings.map((b) => {
+                const isSelected = activePass.bookingRef === b.booking_code;
+                return (
+                  <button
+                    key={b.id}
+                    type="button"
+                    onClick={() => handleSelectPass(mapBookingToActivePass(b, user?.email))}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-medium shrink-0 transition-all border flex items-center gap-1.5 ${
+                      isSelected
+                        ? "bg-[#50644E] text-white border-[#50644E] shadow-2xs font-bold"
+                        : "bg-[#F3F6F1] text-[#172016] border-[#DFE6DC] hover:border-[#CAD8C6]"
+                    }`}
+                  >
+                    <span>{b.vehicles?.name?.split(" ")[0]} {b.vehicles?.name?.split(" ")[1]}</span>
+                    <span className="font-mono text-[10px] opacity-80">{b.booking_code}</span>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-full uppercase bg-emerald-100 text-emerald-800 font-bold">
+                      {b.status.replace("_", " ")}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Guest Mode Sign-in Banner */}
+        {!user && (
+          <div className="pt-2 border-t border-[#F0F4ED] flex items-center justify-between text-xs text-[#5C6B5A]">
+            <span className="text-[11px]">
+              Viewing in Offline / Demo Mode.
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowAuthModal(true)}
+              className="text-[#50644E] font-bold hover:underline flex items-center gap-1"
+            >
+              <span>Sign In with OTP for Cloud Passes</span>
+              <span>→</span>
+            </button>
+          </div>
+        )}
+
         {/* Saved Passes Switcher (Domestic Indian fleet & Supercars) */}
         {showDemoPass && (
           <div className="pt-2 border-t border-[#F0F4ED] flex items-center justify-between gap-2 overflow-x-auto no-scrollbar text-xs">
             <span className="text-[11px] font-semibold text-[#829280] shrink-0">
-              Switch Pass:
+              Demo Passes:
             </span>
             <div className="flex items-center gap-1.5">
               {passArchive.map((p) => {
@@ -630,6 +694,12 @@ export const PassTab: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+      />
     </div>
   );
 };
