@@ -19,10 +19,16 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
 }) => {
   const router = useRouter();
   const { hubs } = useHubLocations();
-  const [locationId, setLocationId] = useState(hubs[0]?.id || "delhi-aerocity");
+  const [locationId, setLocationId] = useState(hubs[0]?.id || "ghaziabad-hub");
   const [pickupDate, setPickupDate] = useState<string>("2026-11-15");
   const [returnDate, setReturnDate] = useState<string>("2026-11-18");
   const [rentalType, setRentalType] = useState<"daily" | "long-term">("daily");
+
+  React.useEffect(() => {
+    if (hubs.length > 0 && (!locationId || !hubs.find((h) => h.id === locationId))) {
+      setLocationId(hubs[0].id);
+    }
+  }, [hubs, locationId]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

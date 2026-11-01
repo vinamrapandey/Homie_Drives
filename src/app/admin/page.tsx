@@ -1,14 +1,16 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useAuth } from "@/lib/supabase/auth";
 import { useVehicles, useHubLocations } from "@/lib/supabase/fleet";
 import { updateVehiclePricingAction } from "@/actions/pricing";
-import { reassignVehicleHubAction } from "@/actions/admin";
+import { reassignVehicleHubAction, updateHubLocationAction } from "@/actions/admin";
+import { DELHI_NCR_LOCATIONS } from "@/data/locations";
 import { formatINR } from "@/lib/formatters";
 import { Car as CarType } from "@/types/car";
+import { LocationHub } from "@/types/booking";
 import {
   ShieldAlert,
   ShieldCheck,
@@ -31,6 +33,7 @@ import {
   AlertTriangle,
   RefreshCw,
   X,
+  Phone,
 } from "lucide-react";
 
 export default function MasterAdminPortalPage() {
@@ -38,8 +41,105 @@ export default function MasterAdminPortalPage() {
   const { vehicles } = useVehicles();
   const { hubs } = useHubLocations();
 
-  const [activeTab, setActiveTab] = useState<"fleet" | "audit" | "agents">("fleet");
+  const [activeTab, setActiveTab] = useState<"fleet" | "hubs" | "audit" | "agents">("fleet");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Manage Local Hubs State for immediate responsiveness
+  const [adminHubs, setAdminHubs] = useState<LocationHub[]>(DELHI_NCR_LOCATIONS);
+  useEffect(() => {
+    if (hubs && hubs.length > 0) {
+      setAdminHubs(hubs);
+    }
+  }, [hubs]);
+
+  // Operational Hub Editing State
+  const [editingHub, setEditingHub] = useState<LocationHub | null>(null);
+  const [hubName, setHubName] = useState("");
+  const [hubArea, setHubArea] = useState("");
+  const [hubCity, setHubCity] = useState("");
+  const [hubAddress, setHubAddress] = useState("");
+  const [hubPhone, setHubPhone] = useState("");
+  const [hubOperatingHours, setHubOperatingHours] = useState("");
+  const [hubStatus, setHubStatus] = useState<"active" | "maintenance">("active");
+  const [hubReason, setHubReason] = useState("Operational Schedule & Address Update");
+  const [isUpdatingHub, setIsUpdatingHub] = useState(false);
+  const [hubFeedback, setHubFeedback] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
+
+  const handleOpenEditHubModal = (hub: LocationHub) => {
+    setEditingHub(hub);
+    setHubName(hub.name);
+    setHubArea(hub.area);
+    setHubCity(hub.city);
+    setHubAddress(hub.address);
+    setHubPhone(hub.phone || "8448786016");
+    setHubOperatingHours(hub.operatingHours || "24x7 Operational • Express Handover");
+    setHubStatus(hub.status || "active");
+    setHubReason("Operational Schedule & Address Update");
+    setHubFeedback(null);
+  };
+
+  const handleSaveHub = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingHub) return;
+    setIsUpdatingHub(true);
+    setHubFeedback(null);
+
+    try {
+      const res = await updateHubLocationAction({
+        hubId: editingHub.id || editingHub.slug,
+        name: hubName,
+        area: hubArea,
+        city: hubCity,
+        address: hubAddress,
+        phone: hubPhone,
+        operatingHours: hubOperatingHours,
+        status: hubStatus,
+        reason: hubReason,
+      });
+
+      if (res.success) {
+        setHubFeedback({
+          type: "success",
+          message: res.message || `Hub station ${hubName} updated successfully.`,
+        });
+        setAdminHubs((prev) =>
+          prev.map((h) =>
+            h.id === editingHub.id || h.slug === editingHub.slug
+              ? {
+                  ...h,
+                  name: hubName,
+                  area: hubArea,
+                  city: hubCity,
+                  address: hubAddress,
+                  phone: hubPhone,
+                  operatingHours: hubOperatingHours,
+                  status: hubStatus,
+                }
+              : h
+          )
+        );
+        setTimeout(() => {
+          setEditingHub(null);
+          setHubFeedback(null);
+        }, 1500);
+      } else {
+        setHubFeedback({
+          type: "error",
+          message: res.error || "Failed to update hub station.",
+        });
+      }
+    } catch (err) {
+      setHubFeedback({
+        type: "error",
+        message: err instanceof Error ? err.message : "Unexpected error during hub update.",
+      });
+    } finally {
+      setIsUpdatingHub(false);
+    }
+  };
 
   // Inline Vehicle Pricing Editor State
   const [editingCar, setEditingCar] = useState<CarType | null>(null);
@@ -289,13 +389,24 @@ export default function MasterAdminPortalPage() {
           <button
             type="button"
             onClick={() => setActiveTab("fleet")}
-            className={`px-4 py-2 rounded-xl transition-all ${
+            className={`px-4 py-2 rounded-xl transition-all cursor-pointer ${
               activeTab === "fleet"
                 ? "bg-[#50644E] text-white shadow-sm"
                 : "text-[#5C6B5A] hover:text-[#172016] hover:bg-white"
             }`}
           >
             Master Vehicle Inventory ({vehicles.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("hubs")}
+            className={`px-4 py-2 rounded-xl transition-all cursor-pointer ${
+              activeTab === "hubs"
+                ? "bg-[#50644E] text-white shadow-sm"
+                : "text-[#5C6B5A] hover:text-[#172016] hover:bg-white"
+            }`}
+          >
+            Operational Hubs &amp; Stations ({adminHubs.length})
           </button>
           <button
             type="button"
@@ -435,7 +546,119 @@ export default function MasterAdminPortalPage() {
           </div>
         )}
 
-        {/* TAB 2: SYSTEM AUDIT LOG */}
+        {/* TAB 2: OPERATIONAL HUBS & STATIONS */}
+        {activeTab === "hubs" && (
+          <div className="bg-white rounded-3xl border border-[#E8EFE5] shadow-homie overflow-hidden p-6 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#F0F4ED]">
+              <div>
+                <h2 className="text-lg font-bold text-[#172016]">Delhi NCR Operational Hub Stations</h2>
+                <p className="text-xs text-[#5C6B5A] mt-0.5">
+                  Manage station addresses, operating hours, direct hotlines, and public customer hub showcase pages.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-[#50644E] bg-[#EAF0E7] px-3 py-1 rounded-full">
+                  {adminHubs.length} Active Stations
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {adminHubs.map((hub) => {
+                const hubCars = vehicles.filter(
+                  (v) =>
+                    v.hubSlug === hub.slug ||
+                    v.hubLocation.toLowerCase().includes(hub.name.toLowerCase()) ||
+                    v.hubLocation.toLowerCase().includes(hub.city.toLowerCase())
+                );
+                const availableCount = hubCars.filter((v) => v.isAvailableDemo).length;
+
+                return (
+                  <div
+                    key={hub.id}
+                    className="p-5 bg-[#F8FAF7] border border-[#E8EFE5] rounded-3xl flex flex-col justify-between space-y-4 hover:border-[#50644E]/40 transition-all shadow-xs"
+                  >
+                    <div>
+                      <div className="flex items-start justify-between gap-2 mb-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-10 h-10 rounded-2xl bg-white border border-[#E8EFE5] overflow-hidden relative shrink-0">
+                            <Image
+                              src={hub.image || "/images/cars/homie_vantage_sage.jpg"}
+                              alt={hub.name}
+                              fill
+                              className="object-cover"
+                            />
+                          </div>
+                          <div>
+                            <h3 className="font-extrabold text-sm text-[#172016]">{hub.name}</h3>
+                            <span className="text-[11px] text-[#5C6B5A] block">{hub.city}</span>
+                          </div>
+                        </div>
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            hub.status === "maintenance"
+                              ? "bg-amber-100 text-amber-800 border border-amber-200"
+                              : "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                          }`}
+                        >
+                          {hub.status === "maintenance" ? "Maintenance" : "Active 24x7"}
+                        </span>
+                      </div>
+
+                      <div className="space-y-2 text-xs text-[#5C6B5A]">
+                        <div>
+                          <span className="text-[10px] uppercase font-bold text-[#829280] block">
+                            Area / Landmark
+                          </span>
+                          <p className="font-medium text-[#172016]">{hub.area}</p>
+                        </div>
+                        <div>
+                          <span className="text-[10px] uppercase font-bold text-[#829280] block">
+                            Street Address
+                          </span>
+                          <p className="text-[11px] line-clamp-2">{hub.address}</p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 pt-1 text-[11px]">
+                          <div className="bg-white p-2 rounded-xl border border-[#E8EFE5]">
+                            <span className="text-[#829280] block text-[10px]">Hotline Phone</span>
+                            <strong className="text-[#172016] font-mono">{hub.phone || "8448786016"}</strong>
+                          </div>
+                          <div className="bg-white p-2 rounded-xl border border-[#E8EFE5]">
+                            <span className="text-[#829280] block text-[10px]">Station Fleet</span>
+                            <strong className="text-[#172016]">
+                              {availableCount} / {hubCars.length} Available
+                            </strong>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-[#E8EFE5] flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditHubModal(hub)}
+                        className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-white hover:bg-[#E8EFE5] text-[#172016] border border-[#CFD8CD] transition-colors flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Edit3 className="w-3.5 h-3.5 text-[#50644E]" />
+                        <span>Edit Station</span>
+                      </button>
+                      <Link
+                        href={`/hubs/${hub.slug}`}
+                        target="_blank"
+                        className="text-xs font-bold text-[#50644E] hover:underline flex items-center gap-1"
+                      >
+                        <span>View Station Page</span>
+                        <ArrowUpRight className="w-3.5 h-3.5" />
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 3: SYSTEM AUDIT LOG */}
         {activeTab === "audit" && (
           <div className="bg-white rounded-3xl border border-[#E8EFE5] shadow-homie overflow-hidden">
             <div className="p-5 sm:p-6 border-b border-[#F0F4ED]">
@@ -814,6 +1037,186 @@ export default function MasterAdminPortalPage() {
                       <>
                         <MapPin className="w-3.5 h-3.5" />
                         Confirm Reassignment
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Operational Hub Editing Modal Dialog */}
+        {editingHub && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+            <div className="bg-white rounded-3xl max-w-xl w-full border border-[#E8EFE5] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+              <div className="p-5 sm:p-6 bg-[#172016] text-white flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-emerald-400">
+                    <MapPin className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-base">Edit Hub Station Details</h3>
+                    <p className="text-xs text-white/60">
+                      Configure operational address, operating hours, and dispatch hotline
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingHub(null);
+                    setHubFeedback(null);
+                  }}
+                  className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/80 hover:text-white transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveHub} className="p-5 sm:p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">Station Name</label>
+                    <input
+                      type="text"
+                      value={hubName}
+                      onChange={(e) => setHubName(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] outline-hidden"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">City</label>
+                    <input
+                      type="text"
+                      value={hubCity}
+                      onChange={(e) => setHubCity(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] outline-hidden"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-[#172016]">Area / Landmark</label>
+                  <input
+                    type="text"
+                    value={hubArea}
+                    onChange={(e) => setHubArea(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] outline-hidden"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-[#172016]">Full Street Address</label>
+                  <textarea
+                    rows={2}
+                    value={hubAddress}
+                    onChange={(e) => setHubAddress(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] outline-hidden resize-none"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">Station Hotline Phone</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#829280]">
+                        +91
+                      </span>
+                      <input
+                        type="text"
+                        value={hubPhone}
+                        onChange={(e) => setHubPhone(e.target.value)}
+                        className="w-full pl-10 pr-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] outline-hidden font-mono"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">Operating Status</label>
+                    <select
+                      value={hubStatus}
+                      onChange={(e) => setHubStatus(e.target.value as "active" | "maintenance")}
+                      className="w-full px-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] bg-white outline-hidden"
+                    >
+                      <option value="active">Active 24x7 Operational</option>
+                      <option value="maintenance">Maintenance / Temporarily Closed</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-[#172016]">Operating Hours Schedule</label>
+                  <input
+                    type="text"
+                    value={hubOperatingHours}
+                    onChange={(e) => setHubOperatingHours(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] outline-hidden"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-[#172016]">Audit Justification</label>
+                  <input
+                    type="text"
+                    value={hubReason}
+                    onChange={(e) => setHubReason(e.target.value)}
+                    placeholder="e.g., Station landmark update for easier customer routing"
+                    className="w-full px-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] outline-hidden"
+                    required
+                  />
+                </div>
+
+                {/* Feedback Banner */}
+                {hubFeedback && (
+                  <div
+                    className={`p-3 rounded-xl text-xs font-semibold flex items-center gap-2 ${
+                      hubFeedback.type === "success"
+                        ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                        : "bg-red-50 text-red-800 border border-red-200"
+                    }`}
+                  >
+                    {hubFeedback.type === "success" ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                    )}
+                    <span>{hubFeedback.message}</span>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#F0F4ED]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingHub(null);
+                      setHubFeedback(null);
+                    }}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-[#5C6B5A] hover:bg-[#F3F6F1] transition-colors cursor-pointer"
+                    disabled={isUpdatingHub}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isUpdatingHub}
+                    className="inline-flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-extrabold bg-[#50644E] hover:bg-[#3D4D3B] text-white shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+                  >
+                    {isUpdatingHub ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        Saving Hub...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Save Station Changes
                       </>
                     )}
                   </button>

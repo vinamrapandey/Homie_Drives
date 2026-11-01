@@ -60,12 +60,14 @@ export interface Car {
   dailyPriceINR: number;
   monthlyPriceINR: number;
   hubLocation: string;
+  hubSlug?: string;
   image: string;
   gallery?: CarGalleryItem[];
   description: string;
   specs: CarSpecs;
   features: string[];
   isAvailableDemo: boolean;
+  unavailableReason?: string;
   agentAssigned: string;
   telematicsStatus?: TelematicsStatus;
   conditionOptions?: VehicleConditionOption[];

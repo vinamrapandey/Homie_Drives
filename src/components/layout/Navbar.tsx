@@ -100,6 +100,16 @@ export const Navbar: React.FC = () => {
                       );
                     })}
                   </div>
+                  <div className="pt-2 px-3 pb-1 border-t border-[#F0F4ED] flex items-center justify-between text-[11px]">
+                    <span className="text-[#829280]">Station details</span>
+                    <Link
+                      href={`/hubs/${selectedHub?.slug || "ghaziabad-hub"}`}
+                      onClick={() => setIsLocationDropdownOpen(false)}
+                      className="font-bold text-[#50644E] hover:underline"
+                    >
+                      Open Station Page →
+                    </Link>
+                  </div>
                 </div>
               </>
             )}

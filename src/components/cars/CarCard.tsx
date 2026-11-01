@@ -25,8 +25,16 @@ export const CarCard: React.FC<CarCardProps> = ({
       {/* Top Image Showcase */}
       <div className="relative w-full aspect-[16/10] bg-gradient-to-b from-[#F7FAF6] to-[#EDF2EB] rounded-[22px] overflow-hidden flex items-center justify-center p-2 mb-3 border border-[#E5ECE3]">
         {/* Floating Tag with Glassmorphism */}
-        <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5 bg-white/85 backdrop-blur-md px-2.5 py-1 rounded-full shadow-xs border border-white/70 text-xs font-bold text-[#172016]">
-          <span>{car.badgeTag}</span>
+        <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5">
+          {!car.isAvailableDemo ? (
+            <span className="bg-amber-500 text-white font-extrabold text-[10px] px-2.5 py-1 rounded-full shadow-xs">
+              Not Available
+            </span>
+          ) : (
+            <span className="bg-white/85 backdrop-blur-md px-2.5 py-1 rounded-full shadow-xs border border-white/70 text-xs font-bold text-[#172016]">
+              {car.badgeTag}
+            </span>
+          )}
         </div>
 
         {/* Favorite Heart Button */}
@@ -69,12 +77,18 @@ export const CarCard: React.FC<CarCardProps> = ({
           />
         </Link>
 
-        {/* Telematics Chip on Image Bottom */}
-        {car.telematicsStatus && (
-          <div className="absolute bottom-2.5 right-2.5 z-10 flex items-center gap-1 bg-white/85 backdrop-blur-md px-2 py-0.5 rounded-full border border-white/70 shadow-2xs text-[10px] font-semibold text-[#3F503D]">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span>{car.telematicsStatus.keylessReady ? "Keyless Ready" : "Delhi Fastag"}</span>
+        {/* Telematics Chip or Not Available Banner */}
+        {!car.isAvailableDemo ? (
+          <div className="absolute bottom-0 inset-x-0 bg-amber-600/95 text-white py-1 px-2.5 text-[10px] font-bold text-center backdrop-blur-xs truncate">
+            {car.unavailableReason || "Not Available • Reserved"}
           </div>
+        ) : (
+          car.telematicsStatus && (
+            <div className="absolute bottom-2.5 right-2.5 z-10 flex items-center gap-1 bg-white/85 backdrop-blur-md px-2 py-0.5 rounded-full border border-white/70 shadow-2xs text-[10px] font-semibold text-[#3F503D]">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span>{car.telematicsStatus.keylessReady ? "Keyless Ready" : "Delhi Fastag"}</span>
+            </div>
+          )
         )}
       </div>
 

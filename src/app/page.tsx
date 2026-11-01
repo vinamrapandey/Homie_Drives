@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { SearchPanel } from "@/components/booking/SearchPanel";
 import { CarCard } from "@/components/cars/CarCard";
 import { useVehicles } from "@/lib/supabase/fleet";
+import { DELHI_NCR_LOCATIONS } from "@/data/locations";
 import {
   Compass,
   ShieldCheck,
@@ -16,6 +17,9 @@ import {
   MapPin,
   Clock,
   ChevronRight,
+  Phone,
+  MessageSquare,
+  Navigation,
 } from "lucide-react";
 
 export default function HomePage() {
@@ -84,7 +88,7 @@ export default function HomePage() {
           <div className="w-full flex items-center justify-between gap-2 mb-8 sm:mb-12">
             <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/15 text-xs font-semibold text-white/90">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>Delhi NCR • 4 Active Handover Hubs</span>
+              <span>Delhi NCR • 6 Active Handover Hubs</span>
             </div>
 
             {/* Floating Top Bell Button */}
@@ -264,6 +268,132 @@ export default function HomePage() {
       </section>
 
       {/* =========================================================================
+          CREATIVE VIP CONCIERGE & DIRECT PHONE / WHATSAPP BOOKING SHOWCASE
+          ========================================================================= */}
+      <section className="px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto">
+        <div className="relative overflow-hidden bg-gradient-to-br from-[#1C271B] via-[#162115] to-[#10180F] text-white rounded-[32px] sm:rounded-[36px] p-6 sm:p-10 border border-[#2D3F2B] shadow-[0_16px_40px_rgba(20,32,19,0.35)]">
+          {/* Subtle Ambient Glow */}
+          <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute bottom-0 left-0 w-72 h-72 bg-[#50644E]/20 rounded-full blur-3xl pointer-events-none" />
+
+          <div className="relative z-10">
+            {/* Top Eyebrow Badge */}
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+              <div className="inline-flex items-center gap-2 bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-extrabold text-xs px-3.5 py-1 rounded-full backdrop-blur-md">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                <span>DIRECT BOOKING HOTLINE • NO APP REQUIRED</span>
+              </div>
+              <span className="text-xs text-white/60 font-mono flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Average Pickup Under 3 Seconds</span>
+              </span>
+            </div>
+
+            {/* Headline & Description */}
+            <div className="max-w-2xl mb-8">
+              <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-white leading-tight">
+                Prefer to book by talking to a human?
+              </h2>
+              <p className="text-xs sm:text-sm text-white/75 mt-2 leading-relaxed">
+                Connect directly with our 24x7 Delhi NCR Fleet Concierge at{" "}
+                <strong className="text-emerald-400 font-mono font-bold">8448786016</strong>. Instant
+                vehicle lock, customized trip pricing, and fast dispatch across all 6 hubs.
+              </p>
+            </div>
+
+            {/* Creative Two-Pillar Action Showcase (Call & WhatsApp) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+              {/* Pillar 1: Direct Instant Call */}
+              <a
+                href="tel:+918448786016"
+                className="group relative overflow-hidden bg-white/10 hover:bg-white/15 active:scale-[0.99] border border-white/20 rounded-2xl p-5 sm:p-6 transition-all duration-200 shadow-md flex items-center justify-between gap-4"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-lg group-hover:scale-105 transition-transform">
+                    <Phone className="w-7 h-7 animate-pulse" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase font-extrabold tracking-wider text-emerald-300 block">
+                      Tap to Call Immediately
+                    </span>
+                    <strong className="text-xl sm:text-2xl font-black text-white font-mono block mt-0.5 tracking-wide">
+                      8448786016
+                    </strong>
+                    <span className="text-xs text-white/70 block mt-0.5">
+                      Direct line to Delhi NCR Dispatch Desk
+                    </span>
+                  </div>
+                </div>
+                <div className="hidden sm:flex items-center justify-center w-9 h-9 rounded-full bg-white/10 text-white group-hover:bg-emerald-500 transition-colors shrink-0">
+                  <ArrowRight className="w-4 h-4" />
+                </div>
+              </a>
+
+              {/* Pillar 2: WhatsApp VIP Concierge */}
+              <a
+                href={`https://wa.me/918448786016?text=${encodeURIComponent(
+                  "Hello Homie Drives! I would like to book a car directly via WhatsApp concierge."
+                )}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group relative overflow-hidden bg-emerald-950/40 hover:bg-emerald-950/60 active:scale-[0.99] border border-emerald-500/30 rounded-2xl p-5 sm:p-6 transition-all duration-200 shadow-md flex items-center justify-between gap-4"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-2xl bg-[#25D366] text-white flex items-center justify-center shrink-0 shadow-lg group-hover:scale-105 transition-transform">
+                    <MessageSquare className="w-7 h-7" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase font-extrabold tracking-wider text-emerald-300 block">
+                      Chat on WhatsApp
+                    </span>
+                    <strong className="text-xl sm:text-2xl font-black text-white font-mono block mt-0.5 tracking-wide">
+                      Instant Reply
+                    </strong>
+                    <span className="text-xs text-white/70 block mt-0.5">
+                      Share dates &amp; get instant vehicle photos
+                    </span>
+                  </div>
+                </div>
+                <div className="hidden sm:flex items-center justify-center w-9 h-9 rounded-full bg-white/10 text-white group-hover:bg-[#25D366] transition-colors shrink-0">
+                  <ArrowRight className="w-4 h-4" />
+                </div>
+              </a>
+            </div>
+
+            {/* Direct Hubs Explorer Bar */}
+            <div className="pt-6 border-t border-white/10">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+                <span className="text-xs font-bold text-white/80 uppercase tracking-wider flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Or explore vehicles at our 6 NCR Station Hubs:</span>
+                </span>
+                <span className="text-[11px] text-white/50">
+                  Includes directions &amp; real-time availability
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+                {DELHI_NCR_LOCATIONS.map((loc) => (
+                  <Link
+                    key={loc.id}
+                    href={`/hubs/${loc.slug}`}
+                    className="p-2.5 rounded-xl bg-white/5 hover:bg-white/15 border border-white/10 text-left transition-all hover:-translate-y-0.5 group"
+                  >
+                    <span className="text-xs font-bold text-white group-hover:text-emerald-300 transition-colors block truncate">
+                      {loc.name}
+                    </span>
+                    <span className="text-[10px] text-white/60 block truncate">
+                      {loc.city} Station →
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* =========================================================================
           Featured Fleet Section with 3-Tier Condition Badges
           ========================================================================= */}
       <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
@@ -427,7 +557,7 @@ export default function HomePage() {
               Delhi NCR Operating Hubs
             </h3>
             <p className="text-xs text-[#5C6B5A] leading-relaxed">
-              Pick up and return at your preferred regional hub in Aerocity, Gurugram Cyber Hub, Connaught Place, or Noida.
+              Pick up and return at your preferred regional hub in Ghaziabad, Faridabad, Gurugram, Noida, Greater Noida, or Meerut.
             </p>
           </div>
 

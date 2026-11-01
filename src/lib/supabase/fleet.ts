@@ -16,21 +16,24 @@ export async function getHubLocations(): Promise<LocationHub[]> {
     const supabase = createClient();
     const { data, error } = await supabase
       .from("pickup_locations")
-      .select("id, name, slug, address, is_active")
+      .select("id, name, slug, address, city, is_active")
       .eq("is_active", true);
 
     if (error || !data || data.length === 0) {
       return DELHI_NCR_LOCATIONS;
     }
 
-    return data.map((loc) => ({
-      id: loc.slug,
-      name: loc.name,
-      area: loc.name.split("(")[0].trim(),
-      city: "Delhi NCR",
-      address: loc.address,
-      isPopular: true,
-    }));
+    // Merge database hubs with typed local fallback metadata
+    return DELHI_NCR_LOCATIONS.map((localHub) => {
+      const dbHub = data.find((d) => d.slug === localHub.slug || d.name === localHub.name);
+      if (!dbHub) return localHub;
+      return {
+        ...localHub,
+        name: dbHub.name || localHub.name,
+        address: dbHub.address || localHub.address,
+        city: dbHub.city || localHub.city,
+      };
+    });
   } catch {
     return DELHI_NCR_LOCATIONS;
   }

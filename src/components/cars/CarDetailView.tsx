@@ -508,6 +508,26 @@ export const CarDetailView: React.FC<CarDetailViewProps> = ({
             </span>
           </div>
 
+          {/* Availability Status Banner if vehicle is Not Available */}
+          {!car.isAvailableDemo && (
+            <div className="mt-4 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs">
+              <div className="flex items-center gap-2 font-bold mb-1">
+                <span className="w-2 h-2 rounded-full bg-amber-600 animate-pulse" />
+                <span>Station Availability: NOT AVAILABLE</span>
+              </div>
+              <p className="text-[#5C6B5A]">
+                {car.unavailableReason || "This vehicle is currently on an active reservation or in scheduled detailing."}
+              </p>
+              <p className="text-[11px] text-amber-800 font-semibold mt-1">
+                Call our 24x7 fleet desk at{" "}
+                <a href="tel:+918448786016" className="underline font-bold font-mono">
+                  8448786016
+                </a>{" "}
+                to check future dates or arrange vehicle repositioning.
+              </p>
+            </div>
+          )}
+
           {/* Primary Inline CTA */}
           <div ref={inlineCtaRef} className="mt-6 pt-4 border-t border-[#F0F4ED] space-y-3">
             <button

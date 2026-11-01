@@ -40,7 +40,17 @@ export default function AgentPortalPage() {
   const { hubs } = useHubLocations();
 
   // Selected Hub for Agent View
-  const [selectedHubSlug, setSelectedHubSlug] = useState<string>("delhi-aerocity");
+  const [selectedHubSlug, setSelectedHubSlug] = useState<string>("ghaziabad-hub");
+
+  useEffect(() => {
+    if (
+      hubs.length > 0 &&
+      (!selectedHubSlug ||
+        !hubs.find((h) => h.id === selectedHubSlug || h.slug === selectedHubSlug))
+    ) {
+      setSelectedHubSlug(hubs[0].id || hubs[0].slug);
+    }
+  }, [hubs, selectedHubSlug]);
 
   // Inspection Modal State
   const [inspectionTarget, setInspectionTarget] = useState<{
@@ -70,18 +80,16 @@ export default function AgentPortalPage() {
   const [verifySuccess, setVerifySuccess] = useState<string | null>(null);
 
   // Active Hub
-  const currentHub = hubs.find((h) => h.id === selectedHubSlug) || hubs[0];
+  const currentHub =
+    hubs.find((h) => h.id === selectedHubSlug || h.slug === selectedHubSlug) || hubs[0];
 
   // Vehicles at this Hub
   const hubVehicles = vehicles.filter((v) => {
+    if (v.hubSlug && (v.hubSlug === selectedHubSlug || v.hubSlug === currentHub?.slug)) return true;
     const loc = (v.hubLocation || "").toLowerCase();
-    if (selectedHubSlug === "delhi-aerocity" && loc.includes("aerocity")) return true;
-    if (selectedHubSlug === "delhi-cp" && (loc.includes("connaught") || loc.includes("cp"))) return true;
-    if (selectedHubSlug === "gurugram-cyberhub" && loc.includes("cyber")) return true;
-    if (selectedHubSlug === "gurugram-golfcourse" && loc.includes("golf")) return true;
-    if (selectedHubSlug === "noida-sec18" && (loc.includes("noida") || loc.includes("18"))) return true;
-    if (selectedHubSlug === "delhi-saket" && loc.includes("saket")) return true;
-    return false;
+    const currentName = (currentHub?.name || "").toLowerCase();
+    const currentCity = (currentHub?.city || "").toLowerCase();
+    return loc.includes(currentName) || loc.includes(currentCity);
   });
 
   // Mock pending pickups at this hub for operational demonstration

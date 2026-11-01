@@ -1,9 +1,16 @@
 export interface LocationHub {
   id: string;
+  slug: string;
   name: string;
   area: string;
   city: string;
   address: string;
+  image?: string;
+  latitude?: number;
+  longitude?: number;
+  phone?: string;
+  operatingHours?: string;
+  status?: "active" | "maintenance";
   isPopular?: boolean;
 }
 
