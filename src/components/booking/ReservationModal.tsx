@@ -8,6 +8,9 @@ import { DigiLockerKycRecord, ActiveRentalPass } from "@/types/booking";
 import { DEFAULT_PROTECTION_PLANS } from "@/data/protection";
 import { formatINR, formatDate, calculateRentalDays } from "@/lib/formatters";
 import { saveActivePass } from "@/lib/passStorage";
+import { createBookingAction } from "@/actions/booking";
+import { useAuth } from "@/lib/supabase/auth";
+import { AuthModal } from "@/components/auth/AuthModal";
 import {
   X,
   CheckCircle,
@@ -21,7 +24,20 @@ import {
   Check,
   ChevronRight,
   RotateCcw,
+  RefreshCw,
+  AlertTriangle,
+  UserCheck,
 } from "lucide-react";
+
+function getHubSlugFromLocation(location: string): string {
+  const loc = (location || "").toLowerCase();
+  if (loc.includes("cyber")) return "gurugram-cyberhub";
+  if (loc.includes("connaught") || loc.includes("cp")) return "delhi-cp";
+  if (loc.includes("golf")) return "gurugram-golfcourse";
+  if (loc.includes("noida") || loc.includes("18")) return "noida-sec18";
+  if (loc.includes("saket") || loc.includes("citywalk")) return "delhi-saket";
+  return "delhi-aerocity";
+}
 
 interface ReservationModalProps {
   car: Car;
@@ -62,6 +78,12 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
   const [isFastagWalletLinked, setIsFastagWalletLinked] = useState(true);
   const [isAgreementAccepted, setIsAgreementAccepted] = useState(true);
   const [issuedPass, setIssuedPass] = useState<ActiveRentalPass | null>(null);
+
+  // Supabase Auth & Booking Mutation State
+  const { user } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   // Rental days
   const days = Math.max(1, calculateRentalDays(pickupDate, returnDate));
@@ -107,9 +129,48 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
     });
   };
 
-  const handleAuthorizeAndIssuePass = () => {
-    const randomSuffix = Math.floor(1000 + Math.random() * 9000).toString();
-    const bookingRef = `#HD-DEL-${randomSuffix}`;
+  const handleAuthorizeAndIssuePass = async () => {
+    setIsSubmitting(true);
+    setSubmitError(null);
+
+    let bookingRef = `#HD-DEL-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    if (user) {
+      try {
+        const result = await createBookingAction({
+          carSlug: car.slug,
+          hubSlug: getHubSlugFromLocation(car.hubLocation),
+          pickupDate,
+          returnDate,
+          pickupTime: "10:00 AM",
+          returnTime: "08:00 PM",
+          conditionTier: (activeCondition?.tier || conditionTier) as "pristine" | "mint" | "touring",
+          protectionTier: selectedPlanId,
+          fastagBufferINR: isFastagWalletLinked ? 1000 : 0,
+          driverName: kycRecord?.driverName || user.user_metadata?.full_name || "Homie Customer",
+          dlNumber: kycRecord?.dlNumber || dlNumber || "DL-0420230012345",
+          email: user.email || undefined,
+        });
+
+        if (!result.success) {
+          setSubmitError(result.error || "Failed to confirm reservation.");
+          setIsSubmitting(false);
+          return;
+        }
+
+        if (result.booking) {
+          bookingRef = result.booking.bookingCode;
+        }
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : "Error confirming reservation";
+        setSubmitError(message);
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
+    const randomSuffix =
+      bookingRef.replace("#HD-DEL-", "") || Math.floor(1000 + Math.random() * 9000).toString();
 
     let regPrefix = "DL-01";
     if (car.hubLocation.includes("Cyber Hub") || car.hubLocation.includes("Gurugram")) {
@@ -148,7 +209,8 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
       pin: randomSuffix,
       assignedAgent: car.agentAssigned || "Kabir Mehta (Delhi Central)",
       agentPhone: "+91 98101 88924",
-      driverName: kycRecord?.driverName || "Arjun Sharma",
+      driverName:
+        kycRecord?.driverName || (user?.email ? user.email.split("@")[0] : "Arjun Sharma"),
       dlNumber: kycRecord?.dlNumber || dlNumber || "DL-0420230012345",
       kycStatus: "verified",
       carLocked: true,
@@ -162,6 +224,7 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
 
     saveActivePass(newPass);
     setIssuedPass(newPass);
+    setIsSubmitting(false);
     setStep(4);
   };
 
@@ -623,27 +686,67 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
               </label>
             </div>
 
+            {/* Supabase Concurrency Conflict / Error Notice */}
+            {submitError && (
+              <div className="p-3.5 bg-red-50 border border-red-200 rounded-2xl flex items-start gap-2.5 text-xs text-red-800 animate-in fade-in">
+                <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-bold">Reservation Alert</p>
+                  <p className="mt-0.5 leading-relaxed">{submitError}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Guest / Demo Notice with 1-Click Supabase Auth */}
+            {!user && (
+              <div className="p-3 bg-[#F3F6F1] border border-[#CAD8C6] rounded-2xl flex items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2">
+                  <UserCheck className="w-4 h-4 text-[#50644E] shrink-0" />
+                  <span className="text-[#3D4F3B]">
+                    Reserving in Guest Mode. <strong>Sign in with OTP</strong> to record this booking directly to your Supabase account.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAuthModal(true)}
+                  className="font-bold text-[#50644E] hover:underline shrink-0"
+                >
+                  Sign In
+                </button>
+              </div>
+            )}
+
             {/* Action buttons */}
             <div className="pt-2 flex items-center gap-2">
               <button
                 type="button"
+                disabled={isSubmitting}
                 onClick={() => setStep(2)}
-                className="py-3 px-4 rounded-full border border-[#DFE6DC] text-xs font-semibold text-[#5C6B5A] hover:bg-[#F3F6F1] transition-colors"
+                className="py-3 px-4 rounded-full border border-[#DFE6DC] text-xs font-semibold text-[#5C6B5A] hover:bg-[#F3F6F1] transition-colors disabled:opacity-50"
               >
                 Back to KYC
               </button>
               <button
                 type="button"
-                disabled={!isAgreementAccepted}
+                disabled={!isAgreementAccepted || isSubmitting}
                 onClick={handleAuthorizeAndIssuePass}
                 className={`flex-1 py-3 px-4 rounded-full text-xs font-bold text-white transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer ${
-                  isAgreementAccepted
+                  isAgreementAccepted && !isSubmitting
                     ? "bg-[#50644E] hover:bg-[#3F503D] active:scale-[0.99]"
                     : "bg-gray-400 cursor-not-allowed"
                 }`}
               >
-                <span>Authorize &amp; Issue Rental Pass</span>
-                <Check className="w-4 h-4" />
+                {isSubmitting ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Verifying Fleet Availability...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Authorize &amp; Issue Rental Pass</span>
+                    <Check className="w-4 h-4" />
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -747,6 +850,12 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
           </div>
         )}
       </div>
+
+      {/* 1-Click Passwordless Auth Modal */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+      />
     </div>
   );
 };
