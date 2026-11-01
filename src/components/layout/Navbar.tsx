@@ -7,7 +7,7 @@ import { Logo } from "@/components/common/Logo";
 import { useHubLocations } from "@/lib/supabase/fleet";
 import { useAuth } from "@/lib/supabase/auth";
 import { AuthModal } from "@/components/auth/AuthModal";
-import { MapPin, ChevronDown, Check, User as UserIcon } from "lucide-react";
+import { MapPin, ChevronDown, Check, User as UserIcon, Phone, MessageCircle } from "lucide-react";
 
 export const Navbar: React.FC = () => {
   const pathname = usePathname();
@@ -131,6 +131,28 @@ export const Navbar: React.FC = () => {
 
           {/* User Auth Action & Fleet CTA */}
           <div className="flex items-center gap-2">
+            {/* Quick Call Direct Booking */}
+            <a
+              href="tel:+918448786016"
+              className="hidden lg:inline-flex items-center gap-1.5 text-xs font-bold text-[#172016] bg-[#F3F6F1] hover:bg-[#EAF0E7] px-3 py-1.5 rounded-full border border-[#DFE6DC] transition-all hover:scale-[1.01]"
+              title="Call for Instant Car Booking"
+            >
+              <Phone className="w-3.5 h-3.5 text-[#50644E]" />
+              <span>8448786016</span>
+            </a>
+
+            {/* Quick WhatsApp Direct Booking */}
+            <a
+              href="https://wa.me/918448786016?text=Hi%20Homie%20Drives%2C%20I%20would%20like%20to%20book%20a%20car%20in%20Delhi%20NCR."
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden xl:inline-flex items-center gap-1.5 text-xs font-bold text-[#075E54] bg-[#25D366]/15 hover:bg-[#25D366]/25 px-3 py-1.5 rounded-full border border-[#25D366]/30 transition-all hover:scale-[1.01]"
+              title="WhatsApp for Instant Car Booking"
+            >
+              <MessageCircle className="w-3.5 h-3.5 fill-[#25D366]" />
+              <span>WhatsApp</span>
+            </a>
+
             {user ? (
               <Link
                 href="/profile"

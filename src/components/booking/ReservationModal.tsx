@@ -27,6 +27,8 @@ import {
   RefreshCw,
   AlertTriangle,
   UserCheck,
+  Phone,
+  MessageCircle,
 } from "lucide-react";
 
 function getHubSlugFromLocation(location: string): string {
@@ -305,6 +307,34 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
                     {formatDate(pickupDate)} - {formatDate(returnDate)} ({days}d • {planType})
                   </span>
                 </div>
+              </div>
+            </div>
+
+            {/* Direct WhatsApp / Phone Booking Assist Banner */}
+            <div className="p-3 bg-[#F3F7F2] rounded-2xl border border-[#D5E1D1] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-xs">
+              <div>
+                <span className="font-extrabold text-[#172016] block">Prefer direct booking or have questions?</span>
+                <span className="text-[11px] text-[#5C6B5A]">Instant reservation via Call or WhatsApp at <strong>8448786016</strong></span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <a
+                  href="tel:+918448786016"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-[#F8FAF7] text-[#172016] font-bold text-xs border border-[#CFD8CD] shadow-2xs"
+                >
+                  <Phone className="w-3 h-3 text-[#50644E]" />
+                  <span>Call 8448786016</span>
+                </a>
+                <a
+                  href={`https://wa.me/918448786016?text=${encodeURIComponent(
+                    `Hi Homie Drives, I would like to book the ${car.name} from ${pickupDate} to ${returnDate}.`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#25D366] hover:bg-[#20BA5C] text-white font-bold text-xs shadow-2xs"
+                >
+                  <MessageCircle className="w-3 h-3 fill-white" />
+                  <span>WhatsApp</span>
+                </a>
               </div>
             </div>
 
@@ -647,6 +677,34 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
                   </p>
                 </div>
               </label>
+            </div>
+
+            {/* Offline Booking Assistance Option */}
+            <div className="p-3 bg-[#F8FAF7] rounded-2xl border border-[#DFE6DC] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs">
+              <div>
+                <span className="font-bold text-[#172016] block">Questions before payment?</span>
+                <span className="text-[11px] text-[#5C6B5A]">Call or WhatsApp <strong>8448786016</strong> for instant help.</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href="tel:+918448786016"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white text-[#172016] font-bold text-xs border border-[#CFD8CD] shadow-2xs"
+                >
+                  <Phone className="w-3 h-3 text-[#50644E]" />
+                  <span>Call Concierge</span>
+                </a>
+                <a
+                  href={`https://wa.me/918448786016?text=${encodeURIComponent(
+                    `Hi Homie Drives, I am at checkout for ${car.name} and have a quick question.`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#25D366] text-white font-bold text-xs shadow-2xs"
+                >
+                  <MessageCircle className="w-3 h-3 fill-white" />
+                  <span>WhatsApp</span>
+                </a>
+              </div>
             </div>
 
             {/* Itemized Final Quote */}

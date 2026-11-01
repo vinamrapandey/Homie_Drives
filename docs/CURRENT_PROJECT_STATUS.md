@@ -68,6 +68,9 @@
   - Transparent deposit reconciliation showing original escrow held, itemized toll/damage deductions, and net refund credited back to customer.
   - Native print-optimized view with clean PDF generation support (`window.print()`).
   - Integrated into Digital Keyless Pass (`/ride?tab=pass`) and Customer Profile Rentals Ledger (`/profile`).
+* **Direct Booking & Instant Concierge Integration (`8448786016`)**:
+  - Global floating quick-booking concierge widget (`src/components/common/QuickBookingConcierge.tsx`) with 1-tap Phone Call and pre-filled WhatsApp actions.
+  - Quick Call (`tel:+918448786016`) & WhatsApp buttons integrated across Navbar, Search Panel, Car Detail views, Checkout Modal, Profile Help & Support, and Footer.
 * **Official Brand Identity Inculcation**:
   - Injected official high-res logo (`homie.drives.png`) across brand components (`Navbar`, `Logo`, `PassTab`, `AuthModal`, `/agent`, `/admin`, and favicon).
 

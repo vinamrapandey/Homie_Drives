@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useHubLocations } from "@/lib/supabase/fleet";
-import { MapPin, Calendar, Clock, Search, Sparkles, Compass } from "lucide-react";
+import { MapPin, Calendar, Clock, Search, Sparkles, Compass, Phone, MessageCircle } from "lucide-react";
 
 interface SearchPanelProps {
   onSearch?: (criteria: {
@@ -147,6 +147,31 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
             <Compass className="w-4 h-4 text-[#50644E]" />
             <span>Plan Road Trip</span>
           </button>
+        </div>
+
+        {/* Instant Booking Hotline & WhatsApp */}
+        <div className="pt-3 border-t border-[#F0F4ED] flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs">
+          <span className="text-[#5C6B5A] text-center sm:text-left">
+            Prefer direct offline booking or immediate dispatch?
+          </span>
+          <div className="flex items-center gap-2">
+            <a
+              href="tel:+918448786016"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#F3F6F1] hover:bg-[#EAF0E7] text-[#172016] font-bold text-xs transition-colors border border-[#DFE6DC]"
+            >
+              <Phone className="w-3.5 h-3.5 text-[#50644E]" />
+              <span>Call 8448786016</span>
+            </a>
+            <a
+              href="https://wa.me/918448786016?text=Hi%20Homie%20Drives%2C%20I%20would%20like%20to%20inquire%20about%20booking%20a%20car."
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#25D366]/15 hover:bg-[#25D366]/25 text-[#075E54] font-bold text-xs transition-colors border border-[#25D366]/30"
+            >
+              <MessageCircle className="w-3.5 h-3.5 fill-[#25D366]" />
+              <span>WhatsApp Booking</span>
+            </a>
+          </div>
         </div>
       </form>
     </div>

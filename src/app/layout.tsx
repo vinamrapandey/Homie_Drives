@@ -5,6 +5,7 @@ import { Navbar } from "@/components/layout/Navbar";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { Footer } from "@/components/layout/Footer";
 import { DisclaimerBanner } from "@/components/common/DisclaimerBanner";
+import { QuickBookingConcierge } from "@/components/common/QuickBookingConcierge";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -50,6 +51,7 @@ export default function RootLayout({
         <DisclaimerBanner />
         <Navbar />
         <main className="flex-1 pb-20 md:pb-0">{children}</main>
+        <QuickBookingConcierge />
         <Footer />
         <BottomNav />
       </body>

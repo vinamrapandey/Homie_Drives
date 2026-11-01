@@ -28,6 +28,7 @@ import {
   ChevronRight,
   Receipt,
   Download,
+  MessageCircle,
 } from "lucide-react";
 
 export default function ProfilePage() {
@@ -558,19 +559,27 @@ export default function ProfilePage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-            <div className="bg-[#F8FAF7] p-4 rounded-xl border border-[#E8EFE5]">
-              <Phone className="w-5 h-5 text-[#50644E] mb-2" />
-              <h4 className="font-bold text-sm text-[#172016]">Roadside Hotline</h4>
-              <p className="text-[#5C6B5A] mt-0.5">+91 11-4000-HOMIE (Demo)</p>
-              <p className="text-[11px] text-[#829280] mt-1">Available 24x7 across Delhi NCR</p>
-            </div>
+            <a
+              href="tel:+918448786016"
+              className="bg-[#F8FAF7] hover:bg-[#F0F4ED] p-4 rounded-xl border border-[#E8EFE5] transition-all block group"
+            >
+              <Phone className="w-5 h-5 text-[#50644E] mb-2 group-hover:scale-110 transition-transform" />
+              <h4 className="font-bold text-sm text-[#172016]">Direct Booking &amp; Roadside Hotline</h4>
+              <p className="text-[#50644E] font-bold mt-0.5 font-mono text-sm">+91 84487 86016</p>
+              <p className="text-[11px] text-[#829280] mt-1">Tap to call our 24x7 Delhi NCR fleet concierge</p>
+            </a>
 
-            <div className="bg-[#F8FAF7] p-4 rounded-xl border border-[#E8EFE5]">
-              <User className="w-5 h-5 text-[#50644E] mb-2" />
+            <a
+              href="https://wa.me/918448786016?text=Hi%20Homie%20Drives%2C%20I%20need%20assistance%20or%20would%20like%20to%20book%20a%20car."
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-[#F8FAF7] hover:bg-[#F0F4ED] p-4 rounded-xl border border-[#E8EFE5] transition-all block group"
+            >
+              <MessageCircle className="w-5 h-5 text-[#25D366] fill-[#25D366] mb-2 group-hover:scale-110 transition-transform" />
               <h4 className="font-bold text-sm text-[#172016]">WhatsApp Fleet Concierge</h4>
-              <p className="text-[#5C6B5A] mt-0.5">+91 98110-HOMIE (Demo)</p>
-              <p className="text-[11px] text-[#829280] mt-1">Chat for hub directions and extensions</p>
-            </div>
+              <p className="text-[#075E54] font-bold mt-0.5 font-mono text-sm">+91 84487 86016</p>
+              <p className="text-[11px] text-[#829280] mt-1">Chat for instant bookings, extensions &amp; hub dispatch</p>
+            </a>
           </div>
 
           <div className="pt-2 border-t border-[#F0F4ED]">

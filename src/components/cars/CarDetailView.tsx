@@ -19,6 +19,8 @@ import {
   ChevronRight,
   Sparkle,
   MoreHorizontal,
+  Phone,
+  MessageCircle,
 } from "lucide-react";
 import { CarImageCarousel } from "@/components/cars/CarImageCarousel";
 import { CarConditionSelector } from "@/components/cars/CarConditionSelector";
@@ -507,21 +509,45 @@ export const CarDetailView: React.FC<CarDetailViewProps> = ({
           </div>
 
           {/* Primary Inline CTA */}
-          <div ref={inlineCtaRef} className="mt-6 pt-4 border-t border-[#F0F4ED]">
+          <div ref={inlineCtaRef} className="mt-6 pt-4 border-t border-[#F0F4ED] space-y-3">
             <button
               type="button"
               onClick={() => setIsReserveModalOpen(true)}
               className="w-full bg-[#50644E] hover:bg-[#3F503D] active:scale-[0.99] text-white text-base font-bold py-4 rounded-full transition-all duration-200 shadow-homie flex items-center justify-center gap-2 cursor-pointer"
             >
-              <span>Book Now • {activeConditionOption.label}</span>
+              <span>Book Online • {activeConditionOption.label}</span>
               <span className="text-sm font-normal text-[#D4E0D1]">
                 ({formatINR(rentalPlan === "daily" ? pricing.total : monthlyDiscountedRate)})
               </span>
               <ChevronRight className="w-5 h-5 ml-1" />
             </button>
-            <p className="text-[11px] text-center text-[#829280] mt-2.5 flex items-center justify-center gap-1">
+
+            {/* Direct Booking Shortcuts: Call or WhatsApp 8448786016 */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <a
+                href="tel:+918448786016"
+                className="flex items-center justify-center gap-2 py-3 px-4 rounded-full bg-white hover:bg-[#F8FAF7] border border-[#CAD8C6] text-[#172016] text-xs font-bold transition-all shadow-2xs hover:scale-[1.01]"
+              >
+                <Phone className="w-4 h-4 text-[#50644E]" />
+                <span>Call to Book: 8448786016</span>
+              </a>
+
+              <a
+                href={`https://wa.me/918448786016?text=${encodeURIComponent(
+                  `Hi Homie Drives, I would like to book the ${car.name} (${activeConditionOption.label} tier) from ${pickupDate} to ${returnDate}.`
+                )}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 py-3 px-4 rounded-full bg-[#25D366]/15 hover:bg-[#25D366]/25 border border-[#25D366]/40 text-[#075E54] text-xs font-bold transition-all shadow-2xs hover:scale-[1.01]"
+              >
+                <MessageCircle className="w-4 h-4 fill-[#25D366]" />
+                <span>Book via WhatsApp</span>
+              </a>
+            </div>
+
+            <p className="text-[11px] text-center text-[#829280] mt-1 flex items-center justify-center gap-1">
               <Info className="w-3.5 h-3.5 text-[#50644E]" />
-              <span>No immediate payment required • Prototype preview only</span>
+              <span>Instant phone &amp; WhatsApp confirmation • Same hub pickup &amp; return</span>
             </p>
           </div>
         </div>
@@ -530,29 +556,51 @@ export const CarDetailView: React.FC<CarDetailViewProps> = ({
       {/* Sticky Mobile Floating Booking Bar */}
       {showStickyBar && (
         <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-2xl border-t border-[#DFE6DC] px-4 py-3 sm:hidden shadow-[0_-12px_32px_rgba(23,32,22,0.14)] transition-all duration-300 animate-in slide-in-from-bottom">
-          <div className="flex items-center justify-between gap-3 max-w-md mx-auto">
-            <div>
-              <p className="text-[10px] uppercase font-bold tracking-wider text-[#5C6B5A] truncate max-w-[150px]">
+          <div className="flex items-center justify-between gap-2 max-w-md mx-auto">
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] uppercase font-bold tracking-wider text-[#5C6B5A] truncate">
                 {activeConditionOption.label}
               </p>
               <div className="flex items-baseline gap-1">
-                <span className="text-xl font-black text-[#172016]">
+                <span className="text-lg font-black text-[#172016]">
                   {formatINR(rentalPlan === "daily" ? pricing.total : monthlyDiscountedRate)}
                 </span>
-                <span className="text-xs text-[#829280]">
+                <span className="text-[10px] text-[#829280]">
                   {rentalPlan === "daily" ? "total" : "/ mo"}
                 </span>
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setIsReserveModalOpen(true)}
-              className="bg-[#50644E] hover:bg-[#3F503D] active:scale-95 text-white text-sm font-bold py-3 px-6 rounded-full transition-all duration-200 shadow-md flex items-center gap-1.5 cursor-pointer"
-            >
-              <span>Book Now</span>
-              <ChevronRight className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <a
+                href="tel:+918448786016"
+                className="w-10 h-10 rounded-full bg-[#F3F6F1] border border-[#CAD8C6] flex items-center justify-center text-[#50644E]"
+                title="Call 8448786016"
+              >
+                <Phone className="w-4 h-4" />
+              </a>
+
+              <a
+                href={`https://wa.me/918448786016?text=${encodeURIComponent(
+                  `Hi Homie Drives, I want to book the ${car.name}.`
+                )}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-10 h-10 rounded-full bg-[#25D366]/20 border border-[#25D366]/40 flex items-center justify-center text-[#075E54]"
+                title="WhatsApp 8448786016"
+              >
+                <MessageCircle className="w-4 h-4 fill-[#25D366]" />
+              </a>
+
+              <button
+                type="button"
+                onClick={() => setIsReserveModalOpen(true)}
+                className="bg-[#50644E] hover:bg-[#3F503D] active:scale-95 text-white text-xs font-bold py-2.5 px-4 rounded-full transition-all duration-200 shadow-md flex items-center gap-1 cursor-pointer"
+              >
+                <span>Book</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
         </div>
       )}

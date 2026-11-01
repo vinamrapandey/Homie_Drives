@@ -97,9 +97,23 @@ export const Footer: React.FC = () => {
                 <Sparkles className="w-4 h-4 text-[#50644E]" />
                 <span>Sanitized vehicle doorstep delivery</span>
               </div>
-              <div className="flex items-center gap-2">
-                <Phone className="w-4 h-4 text-[#50644E]" />
-                <span>24x7 Roadside emergency assistance</span>
+              <div className="pt-2 border-t border-[#E8EFE5] space-y-1">
+                <span className="text-[10px] uppercase font-bold text-[#829280] block">Instant Booking Hotline</span>
+                <a
+                  href="tel:+918448786016"
+                  className="font-bold text-xs text-[#172016] hover:text-[#50644E] flex items-center gap-1.5 transition-colors font-mono"
+                >
+                  <Phone className="w-3.5 h-3.5 text-[#50644E]" />
+                  <span>+91 84487 86016</span>
+                </a>
+                <a
+                  href="https://wa.me/918448786016?text=Hi%20Homie%20Drives%2C%20I%20would%20like%20to%20book%20a%20car."
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[11px] font-bold text-[#075E54] hover:underline flex items-center gap-1"
+                >
+                  <span>Chat on WhatsApp →</span>
+                </a>
               </div>
             </div>
           </div>
