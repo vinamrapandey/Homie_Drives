@@ -81,8 +81,14 @@ export default function MasterAdminPortalPage() {
       <div className="bg-[#101710] text-white border-b border-[#253224] py-3.5 px-4 sm:px-6">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-[#50644E] flex items-center justify-center font-bold text-white shadow-sm">
-              <ShieldAlert className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-xl overflow-hidden shadow-2xs shrink-0 bg-white/10 p-0.5">
+              <Image
+                src="/images/logo/homie_drives.png"
+                alt="Homie Drives"
+                width={40}
+                height={40}
+                className="w-full h-full object-contain"
+              />
             </div>
             <div>
               <div className="flex items-center gap-2">

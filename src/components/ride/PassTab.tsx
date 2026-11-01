@@ -250,8 +250,14 @@ export const PassTab: React.FC = () => {
             {/* Top Verified Banner */}
             <div className="bg-[#172016] text-white px-5 sm:px-6 py-4 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center">
-                  <Ticket className="w-4 h-4 text-emerald-400" />
+                <div className="w-8 h-8 rounded-xl overflow-hidden shrink-0 shadow-2xs">
+                  <Image
+                    src="/images/logo/homie_drives.png"
+                    alt="Homie Drives"
+                    width={32}
+                    height={32}
+                    className="w-full h-full object-contain"
+                  />
                 </div>
                 <div>
                   <p className="font-extrabold text-sm tracking-wide flex items-center gap-1.5">

@@ -17,6 +17,10 @@ export const metadata: Metadata = {
   title: "Homie Drives — Mobile-First Car Rentals | Delhi NCR",
   description:
     "Affordable, flexible self-drive car rentals in Delhi NCR from ₹2,499 to ₹24,999/day. City cruisers, executive sedans, and supercar experiences with doorstep delivery and same pickup/return hubs.",
+  icons: {
+    icon: "/homie.drives.png",
+    apple: "/homie.drives.png",
+  },
   keywords: [
     "Car rental Delhi NCR",
     "Self drive cars Gurgaon",

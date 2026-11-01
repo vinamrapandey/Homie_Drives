@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
+import Image from "next/image";
 import { useAuth } from "@/lib/supabase/auth";
-import { X, Mail, ShieldCheck, ArrowRight, RefreshCw, CheckCircle2, Lock } from "lucide-react";
+import { X, Mail, ShieldCheck, ArrowRight, RefreshCw, CheckCircle2 } from "lucide-react";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -89,8 +90,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
 
         {/* Brand Header */}
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded-2xl bg-[#50644E] flex items-center justify-center text-white shadow-sm">
-            <Lock className="w-5 h-5" />
+          <div className="w-12 h-12 rounded-2xl overflow-hidden shadow-2xs shrink-0">
+            <Image
+              src="/images/logo/homie_drives.png"
+              alt="Homie Drives"
+              width={48}
+              height={48}
+              className="w-full h-full object-contain"
+            />
           </div>
           <div>
             <h3 className="text-lg font-bold text-[#172016]">
