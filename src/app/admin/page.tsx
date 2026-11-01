@@ -5,7 +5,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { useAuth } from "@/lib/supabase/auth";
 import { useVehicles, useHubLocations } from "@/lib/supabase/fleet";
+import { updateVehiclePricingAction } from "@/actions/pricing";
 import { formatINR } from "@/lib/formatters";
+import { Car as CarType } from "@/types/car";
 import {
   ShieldAlert,
   ShieldCheck,
@@ -22,6 +24,12 @@ import {
   Lock,
   Layers,
   FileSpreadsheet,
+  DollarSign,
+  Edit3,
+  CheckCircle2,
+  AlertTriangle,
+  RefreshCw,
+  X,
 } from "lucide-react";
 
 export default function MasterAdminPortalPage() {
@@ -31,6 +39,64 @@ export default function MasterAdminPortalPage() {
 
   const [activeTab, setActiveTab] = useState<"fleet" | "audit" | "agents">("fleet");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Inline Vehicle Pricing Editor State
+  const [editingCar, setEditingCar] = useState<CarType | null>(null);
+  const [newDailyRate, setNewDailyRate] = useState<number>(0);
+  const [newDeposit, setNewDeposit] = useState<number>(5000);
+  const [pricingReason, setPricingReason] = useState<string>("Seasonal Demand Adjustment");
+  const [isUpdatingPrice, setIsUpdatingPrice] = useState(false);
+  const [pricingFeedback, setPricingFeedback] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
+
+  const handleOpenPricingModal = (car: CarType) => {
+    setEditingCar(car);
+    setNewDailyRate(car.dailyPriceINR);
+    setNewDeposit(5000);
+    setPricingReason("Seasonal Demand Adjustment");
+    setPricingFeedback(null);
+  };
+
+  const handleSavePricing = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCar) return;
+    setIsUpdatingPrice(true);
+    setPricingFeedback(null);
+
+    try {
+      const res = await updateVehiclePricingAction({
+        vehicleId: editingCar.id,
+        baseDailyPriceINR: Number(newDailyRate),
+        securityDepositINR: Number(newDeposit),
+        reason: pricingReason,
+      });
+
+      if (res.success) {
+        setPricingFeedback({
+          type: "success",
+          message: res.message || `Successfully updated rates for ${editingCar.name}. Audit entry logged.`,
+        });
+        setTimeout(() => {
+          setEditingCar(null);
+          setPricingFeedback(null);
+        }, 1500);
+      } else {
+        setPricingFeedback({
+          type: "error",
+          message: res.error || "Failed to update pricing.",
+        });
+      }
+    } catch (err) {
+      setPricingFeedback({
+        type: "error",
+        message: err instanceof Error ? err.message : "Unexpected error occurred.",
+      });
+    } finally {
+      setIsUpdatingPrice(false);
+    }
+  };
 
   // System-wide mock / live audit trail
   const auditLogs = [
@@ -280,12 +346,22 @@ export default function MasterAdminPortalPage() {
                           </span>
                         </td>
                         <td className="py-4 px-4 text-right">
-                          <Link
-                            href={`/cars/${car.slug}`}
-                            className="text-[#50644E] hover:underline font-bold"
-                          >
-                            Inspect →
-                          </Link>
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => handleOpenPricingModal(car)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-[#50644E] bg-[#EAF0E7] hover:bg-[#dce7d8] transition-colors cursor-pointer"
+                              title="Edit base pricing & deposit"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                              Edit Rate
+                            </button>
+                            <Link
+                              href={`/cars/${car.slug}`}
+                              className="text-xs text-[#5C6B5A] hover:text-[#172016] font-semibold px-2 py-1.5"
+                            >
+                              Inspect →
+                            </Link>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -363,6 +439,175 @@ export default function MasterAdminPortalPage() {
                 <p className="text-[#5C6B5A]">Code: HD-AGT-0208 • Primary Hub: Cyber Hub DLF Phase 2, Gurugram</p>
                 <p className="text-[#829280]">Assigned to: Mahindra Thar Roxx 4x4, Mahindra Scorpio-N 4Xplor</p>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Pricing Modification Modal Dialog */}
+        {editingCar && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+            <div className="bg-white rounded-3xl max-w-lg w-full border border-[#E8EFE5] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+              <div className="p-5 sm:p-6 bg-[#172016] text-white flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-emerald-400">
+                    <DollarSign className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-base">Fleet Pricing Governance</h3>
+                    <p className="text-xs text-white/60">
+                      Live Base Daily Rate &amp; Deposit Calibration
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setEditingCar(null);
+                    setPricingFeedback(null);
+                  }}
+                  className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/80 hover:text-white transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSavePricing} className="p-5 sm:p-6 space-y-5">
+                {/* Car Preview Header */}
+                <div className="flex items-center gap-4 p-3.5 bg-[#F8FAF7] rounded-2xl border border-[#E8EFE5]">
+                  <div className="w-16 h-10 relative rounded-lg bg-white overflow-hidden shrink-0 border border-[#E8EFE5]">
+                    <Image
+                      src={editingCar.image}
+                      alt={editingCar.name}
+                      fill
+                      className="object-contain p-1"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-bold text-sm text-[#172016] truncate">
+                      {editingCar.name}
+                    </h4>
+                    <p className="text-xs text-[#5C6B5A]">
+                      Current: <strong className="font-mono text-[#172016]">{formatINR(editingCar.dailyPriceINR)}/day</strong> • Hub: {editingCar.hubLocation}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Input Fields */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-[#172016] flex items-center gap-1.5">
+                      <span>Daily Base Rate (₹)</span>
+                      <span className="text-[10px] text-[#5C6B5A] font-normal">(Min ₹1,999)</span>
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-[#5C6B5A]">₹</span>
+                      <input
+                        type="number"
+                        min={1999}
+                        max={99999}
+                        value={newDailyRate}
+                        onChange={(e) => setNewDailyRate(Math.max(0, parseInt(e.target.value) || 0))}
+                        className="w-full pl-8 pr-4 py-2.5 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] focus:ring-2 focus:ring-[#50644E]/20 font-mono text-sm font-bold text-[#172016] outline-hidden"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-[#172016] flex items-center gap-1.5">
+                      <span>Security Deposit (₹)</span>
+                      <span className="text-[10px] text-[#5C6B5A] font-normal">(Refundable)</span>
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-[#5C6B5A]">₹</span>
+                      <input
+                        type="number"
+                        min={2000}
+                        max={100000}
+                        value={newDeposit}
+                        onChange={(e) => setNewDeposit(Math.max(0, parseInt(e.target.value) || 0))}
+                        className="w-full pl-8 pr-4 py-2.5 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] focus:ring-2 focus:ring-[#50644E]/20 font-mono text-sm font-bold text-[#172016] outline-hidden"
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Pricing Reason */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-[#172016]">
+                    Mandatory Audit Justification
+                  </label>
+                  <select
+                    value={pricingReason}
+                    onChange={(e) => setPricingReason(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] bg-white outline-hidden"
+                  >
+                    <option value="Seasonal Demand Adjustment">Seasonal Demand Adjustment (Diwali / Weddings)</option>
+                    <option value="Weekend Dynamic Surcharge">Weekend Dynamic Surcharge (+15-20%)</option>
+                    <option value="Fleet Upkeep Calibration">Fleet Upkeep &amp; Service Cost Calibration</option>
+                    <option value="Corporate / Fleet Partner Incentive">Corporate / Fleet Partner Incentive</option>
+                    <option value="Executive Governance Override">Executive Governance Override</option>
+                  </select>
+                </div>
+
+                {/* Audit & Compliance Notice */}
+                <div className="p-3 bg-amber-50 rounded-2xl border border-amber-200/80 flex items-start gap-2.5 text-xs text-amber-900">
+                  <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                  <p>
+                    <strong>Immutable Audit Notice:</strong> This modification will immediately update customer storefront rates across Delhi NCR and append an immutable transaction log record.
+                  </p>
+                </div>
+
+                {/* Feedback */}
+                {pricingFeedback && (
+                  <div
+                    className={`p-3.5 rounded-xl text-xs font-semibold flex items-center gap-2 ${
+                      pricingFeedback.type === "success"
+                        ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                        : "bg-red-50 text-red-800 border border-red-200"
+                    }`}
+                  >
+                    {pricingFeedback.type === "success" ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                    )}
+                    <span>{pricingFeedback.message}</span>
+                  </div>
+                )}
+
+                {/* Form Buttons */}
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingCar(null);
+                      setPricingFeedback(null);
+                    }}
+                    className="px-4 py-2.5 rounded-xl text-xs font-bold text-[#5C6B5A] hover:bg-[#F3F6F1] transition-colors cursor-pointer"
+                    disabled={isUpdatingPrice}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isUpdatingPrice}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-extrabold bg-[#50644E] hover:bg-[#3D4D3B] text-white shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+                  >
+                    {isUpdatingPrice ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        Saving to Supabase...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Apply &amp; Audit Log
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}

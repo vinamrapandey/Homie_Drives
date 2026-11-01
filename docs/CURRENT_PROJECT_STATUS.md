@@ -45,6 +45,17 @@
    - Master vehicle inventory manager across all 6 Delhi NCR operating hubs.
    - Live cryptographic audit log stream monitoring every reservation, OTP verification, and status mutation.
 
+* **Mandatory 360° Walk-Around Video & Inspection Pipeline (`src/actions/inspection.ts`, `src/components/agent/InspectionModal.tsx`)**:
+  - Pre-handover and return condition video upload dialog with live media preview.
+  - Odometer reading, fuel/battery % verification, exterior panel checks, and sanitization certificate.
+  - Automated database records in `rental_inspections` and immutable audit logs.
+* **Master Admin Dynamic Pricing Engine (`src/actions/pricing.ts`, `src/app/admin/page.tsx`)**:
+  - Live modal dialog in Admin Portal for calibrating base daily rates and refundable security deposits.
+  - Zod validation with min/max safety limits (₹1,999 - ₹99,999/day).
+  - Mandatory audit reason classification (e.g. Seasonal Demand, Weekend Surcharge, Fleet Calibration) emitting immutable records to `public.audit_logs`.
+* **Official Brand Identity Inculcation**:
+  - Injected official high-res logo (`homie.drives.png`) across brand components (`Navbar`, `Logo`, `PassTab`, `AuthModal`, `/agent`, `/admin`, and favicon).
+
 ### Code Quality & Deployment
 * **TypeScript Compilation**: `npx tsc --noEmit` passed with **0 errors**.
 * **Production Build**: Verified locally with webpack compiling all **20 routes** cleanly.
@@ -54,12 +65,12 @@
 
 ## 2. What Is Planned But NOT Yet Implemented
 
-* **Mandatory Return Inspection Video Upload**: Direct cloud media pipeline to Supabase Storage. Scheduled for Phase 6.
 * **Real Hardware GPS Telematics**: Currently displays explicit "GPS NOT CONNECTED" in strict adherence to platform governance until physical OBD-II / IoT devices are installed in Phase 8.
+* **Multi-City Expansion Engine**: Configuration for expanding hubs beyond Delhi NCR (Bengaluru, Mumbai, Goa).
 
 ---
 
 ## 3. Immediate Recommended Next Tasks
-1. **Interactive Inspection Media Upload**: Build the video upload component for check-in / return inspections in `/agent`.
-2. **Dynamic Admin Pricing Controls**: Enable inline editing of base daily rates and surge multipliers directly from `/admin`.
+1. **Automated End-to-End Handover Flow Test**: Execute complete customer booking → OTP generation → Agent video inspection & OTP verify → Digital Pass activation test.
+2. **Push to Remote & Vercel Preview Verification**: Monitor Vercel deployment of the latest commits to ensure production parity.
 

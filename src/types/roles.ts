@@ -30,3 +30,4 @@ export interface AuditLogEntry {
   payload?: Record<string, unknown> | null;
   createdAt: string;
 }
+
