@@ -199,3 +199,4 @@ export function useUserBookings() {
     refreshBookings: fetchBookings,
   };
 }
+
