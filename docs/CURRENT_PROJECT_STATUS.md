@@ -27,24 +27,39 @@
   * Immutable audit logging into `public.audit_logs`.
 * **Zero-Layout Shift Hooks**: `useVehicles()` and `useHubLocations()` providing instant client hydration with asynchronous live Supabase database sync.
 
+### Three Connected Application Areas Implemented
+
+1. **Customer Website (`/`, `/plan`, `/ride`, `/profile`, `/cars/[slug]`)**:
+   - Soft sage-green Mobbin design system (`#50644E`, `#F3F6F1`, rounded-3xl cards, bottom pill navigation).
+   - Dynamic fleet and Delhi NCR hub selectors synced with Supabase PostgreSQL.
+   - Passwordless Supabase Auth modal and live customer bookings synchronization into the Digital Pass fob and profile rentals ledger.
+
+2. **Agent Operations Portal (`/agent`)**:
+   - Scoped strictly to operational fleet agents governed by hub assignments.
+   - Real-time customer pickup queue with OTP verification action (`verifyPickupOtpAction`).
+   - Pre-handover inspection logging (odometer reading, fuel/battery %, sanitization checklist).
+   - Hub fleet status view with maintenance scheduling actions.
+
+3. **Master Administration Portal (`/admin`)**:
+   - System-wide executive dashboard with fleet capitalization metrics, gross booking value, and active hub oversight.
+   - Master vehicle inventory manager across all 6 Delhi NCR operating hubs.
+   - Live cryptographic audit log stream monitoring every reservation, OTP verification, and status mutation.
+
 ### Code Quality & Deployment
 * **TypeScript Compilation**: `npx tsc --noEmit` passed with **0 errors**.
-* **Production Build**: Verified locally with webpack compiling all 18 routes cleanly.
+* **Production Build**: Verified locally with webpack compiling all **20 routes** cleanly.
 * **Source Control**: GitHub repository [`https://github.com/vinamrapandey/Homie_Drives`](https://github.com/vinamrapandey/Homie_Drives) clean on branch `main`.
 
 ---
 
 ## 2. What Is Planned But NOT Yet Implemented
 
-* **Agent Portal (`/agent`)**: Scoped to operational fleet agents for customer pickup OTP verification and mandatory check-in/return inspections. Scheduled for Phase 5.
-* **Master Admin Portal (`/admin`)**: Fleet management, agent assignments, pricing adjustments. Scheduled for Phase 5.
-* **Mandatory Return Inspection Video Upload**: Scheduled for Phase 6.
-* **Real Hardware GPS Telematics**: Currently displays "GPS NOT CONNECTED" in adherence to platform governance until real IoT hardware is integrated in Phase 8.
+* **Mandatory Return Inspection Video Upload**: Direct cloud media pipeline to Supabase Storage. Scheduled for Phase 6.
+* **Real Hardware GPS Telematics**: Currently displays explicit "GPS NOT CONNECTED" in strict adherence to platform governance until physical OBD-II / IoT devices are installed in Phase 8.
 
 ---
 
-## 3. Immediate Recommended Next Tasks (Phase 2 & 3)
-1. **User Role Enforcement & Protected Routes**: Wire middleware or server-side checks for `customer`, `agent`, and `master_admin` roles in `public.user_roles`.
-2. **Customer Rental Pass History**: Fetch real bookings for the authenticated user in `src/app/ride/page.tsx` (`PassTab`) and `src/app/profile/page.tsx`.
-3. **Agent OTP Verification Flow**: Implement the agent handover OTP verification action.
+## 3. Immediate Recommended Next Tasks
+1. **Interactive Inspection Media Upload**: Build the video upload component for check-in / return inspections in `/agent`.
+2. **Dynamic Admin Pricing Controls**: Enable inline editing of base daily rates and surge multipliers directly from `/admin`.
 
