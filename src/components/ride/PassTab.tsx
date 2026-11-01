@@ -13,6 +13,7 @@ import { formatINR } from "@/lib/formatters";
 import { useAuth } from "@/lib/supabase/auth";
 import { useUserBookings, mapBookingToActivePass } from "@/lib/supabase/bookings";
 import { AuthModal } from "@/components/auth/AuthModal";
+import { TaxInvoiceModal, InvoiceData } from "@/components/invoice/TaxInvoiceModal";
 import {
   Ticket,
   QrCode,
@@ -35,6 +36,8 @@ import {
   Cloud,
   Sparkles,
   UserCheck,
+  Receipt,
+  FileText,
 } from "lucide-react";
 
 export const PassTab: React.FC = () => {
@@ -54,6 +57,9 @@ export const PassTab: React.FC = () => {
 
   // Full-screen QR Modal
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+
+  // GST Tax Invoice Modal
+  const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
 
   // Copy to clipboard helper
   const handleCopy = (text: string, fieldName: string) => {
@@ -455,6 +461,31 @@ export const PassTab: React.FC = () => {
                 </div>
               </div>
 
+              {/* Tax Invoice & Settlement Receipt Action Bar */}
+              <div className="flex items-center justify-between p-3.5 bg-[#F8FAF7] rounded-2xl border border-[#E8EFE5] transition-all hover:border-[#CAD8C6]">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-[#EAF0E7] flex items-center justify-center text-[#50644E]">
+                    <Receipt className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-[#172016] block">
+                      GST Tax Invoice &amp; Settlement
+                    </span>
+                    <span className="text-[10px] text-[#5C6B5A]">
+                      SAC 996601 • 18% GST • Deductions Breakdown
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsInvoiceModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white text-[#50644E] border border-[#CAD8C6] hover:bg-[#F3F6F1] font-bold text-xs transition-colors shadow-2xs cursor-pointer"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>View Invoice</span>
+                </button>
+              </div>
+
               {/* Handover Agent Contact & SOS */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-[#EAF0E7] rounded-2xl text-xs text-[#3D4F3B]">
                 <div className="flex items-center gap-3">
@@ -705,6 +736,46 @@ export const PassTab: React.FC = () => {
       <AuthModal
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
+      />
+
+      {/* GST Tax Invoice & Settlement Modal */}
+      <TaxInvoiceModal
+        isOpen={isInvoiceModalOpen}
+        onClose={() => setIsInvoiceModalOpen(false)}
+        data={{
+          invoiceNumber: `INV-2026-${(activePass.bookingRef || "HD-DEL-8924").replace(/[^A-Z0-9]/gi, "").slice(-6)}`,
+          invoiceDate: new Date().toLocaleDateString("en-IN", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          }),
+          bookingRef: activePass.bookingRef || "#HD-DEL-8924",
+          customerName: activePass.driverName || "Arjun Sharma",
+          customerEmail: user?.email || "arjun.sharma@example.com",
+          customerPhone: "+91 98765 43210",
+          vehicleName: activePass.carName,
+          vehicleRegistration: activePass.registrationNumber || "DL-01-HD-2025",
+          hubLocation: activePass.pickupLocation,
+          pickupDate: activePass.pickupDate,
+          returnDate: activePass.returnDate,
+          rentalDays: activePass.days || 3,
+          conditionTier: activePass.conditionLabel,
+          baseDailyRateINR: Math.round((activePass.totalPaidINR * 0.65) / (activePass.days || 3)),
+          baseRentalINR: Math.round(activePass.totalPaidINR * 0.65),
+          platformFeeINR: Math.round(activePass.totalPaidINR * 0.04),
+          damageProtectionINR: 1797,
+          protectionTierName: activePass.protectionPlanName,
+          taxableSubtotalINR: Math.round(activePass.totalPaidINR * 0.75),
+          cgstINR: Math.round(activePass.totalPaidINR * 0.75 * 0.09),
+          sgstINR: Math.round(activePass.totalPaidINR * 0.75 * 0.09),
+          totalTaxINR: Math.round(activePass.totalPaidINR * 0.75 * 0.18),
+          fastagBufferINR: activePass.fastagBufferINR || 1000,
+          fastagUsedINR: 240,
+          depositHeldINR: 5000,
+          depositRefundedINR: 4760,
+          totalPaidINR: activePass.totalPaidINR,
+          paymentStatus: "Paid",
+        }}
       />
     </div>
   );

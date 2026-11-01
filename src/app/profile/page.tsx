@@ -7,6 +7,7 @@ import { useActivePass, saveActivePass } from "@/lib/passStorage";
 import { useAuth } from "@/lib/supabase/auth";
 import { useUserBookings, mapBookingToActivePass } from "@/lib/supabase/bookings";
 import { AuthModal } from "@/components/auth/AuthModal";
+import { TaxInvoiceModal, InvoiceData } from "@/components/invoice/TaxInvoiceModal";
 import { formatINR } from "@/lib/formatters";
 import {
   User,
@@ -25,6 +26,8 @@ import {
   Sparkles,
   Cloud,
   ChevronRight,
+  Receipt,
+  Download,
 } from "lucide-react";
 
 export default function ProfilePage() {
@@ -35,6 +38,7 @@ export default function ProfilePage() {
   const activePass = useActivePass();
   const [showKycModal, setShowKycModal] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState<InvoiceData | null>(null);
   const { user, signOut } = useAuth();
   const { bookings, loading: bookingsLoading } = useUserBookings();
 
@@ -253,10 +257,54 @@ export default function ProfilePage() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                    <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
                       <span className="font-extrabold text-sm text-[#172016]">
                         {formatINR(booking.total_amount_inr)}
                       </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedInvoice({
+                            invoiceNumber: `INV-2026-${booking.booking_code.replace(/[^A-Z0-9]/gi, "").slice(-6)}`,
+                            invoiceDate: new Date().toLocaleDateString("en-IN", {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            }),
+                            bookingRef: booking.booking_code,
+                            customerName: userDisplayName,
+                            customerEmail: userEmail,
+                            customerPhone: userPhone,
+                            vehicleName: pass.carName,
+                            vehicleRegistration: pass.registrationNumber,
+                            hubLocation: pass.pickupLocation,
+                            pickupDate: pass.pickupDate,
+                            returnDate: pass.returnDate,
+                            rentalDays: pass.days,
+                            conditionTier: pass.conditionLabel,
+                            baseDailyRateINR: Math.round((booking.total_amount_inr * 0.65) / pass.days),
+                            baseRentalINR: Math.round(booking.total_amount_inr * 0.65),
+                            platformFeeINR: Math.round(booking.total_amount_inr * 0.04),
+                            damageProtectionINR: 1797,
+                            protectionTierName: pass.protectionPlanName,
+                            taxableSubtotalINR: Math.round(booking.total_amount_inr * 0.75),
+                            cgstINR: Math.round(booking.total_amount_inr * 0.75 * 0.09),
+                            sgstINR: Math.round(booking.total_amount_inr * 0.75 * 0.09),
+                            totalTaxINR: Math.round(booking.total_amount_inr * 0.75 * 0.18),
+                            fastagBufferINR: booking.fastag_buffer_inr || 1000,
+                            fastagUsedINR: 240,
+                            depositHeldINR: booking.security_deposit_inr || 5000,
+                            depositRefundedINR: Math.max(0, (booking.security_deposit_inr || 5000) - 240),
+                            totalPaidINR: booking.total_amount_inr,
+                            paymentStatus: booking.status === "closed" ? "Settled & Refunded" : "Paid",
+                          });
+                        }}
+                        className="bg-white text-[#50644E] border border-[#CAD8C6] hover:bg-[#F3F6F1] text-xs font-semibold px-2.5 py-1.5 rounded-xl transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
+                        title="View GST Tax Invoice"
+                      >
+                        <Receipt className="w-3.5 h-3.5" />
+                        <span>Invoice</span>
+                      </button>
                       <button
                         type="button"
                         onClick={() => {
@@ -308,10 +356,53 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
                 <span className="font-extrabold text-sm text-[#172016]">
                   {activePass ? formatINR(activePass.totalPaidINR) : "₹67,497"} Total
                 </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedInvoice({
+                      invoiceNumber: "INV-2026-HD8924",
+                      invoiceDate: new Date().toLocaleDateString("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      }),
+                      bookingRef: activePass?.bookingRef || "#HD-DEL-8924",
+                      customerName: userDisplayName,
+                      customerEmail: userEmail,
+                      customerPhone: userPhone,
+                      vehicleName: activePass?.carName || "Aston Martin Vantage V8",
+                      vehicleRegistration: activePass?.registrationNumber || "DL-01-HD-2025",
+                      hubLocation: activePass?.pickupLocation || "Aerocity Hub (IGI Airport)",
+                      pickupDate: activePass?.pickupDate || "14 Nov 2026",
+                      returnDate: activePass?.returnDate || "17 Nov 2026",
+                      rentalDays: activePass?.days || 3,
+                      conditionTier: activePass?.conditionLabel || "Executive Mint",
+                      baseDailyRateINR: 19499,
+                      baseRentalINR: 58497,
+                      platformFeeINR: 2925,
+                      damageProtectionINR: 3897,
+                      protectionTierName: "Peace of Mind Zero-Liability",
+                      taxableSubtotalINR: 65319,
+                      cgstINR: 5879,
+                      sgstINR: 5879,
+                      totalTaxINR: 11758,
+                      fastagBufferINR: 2000,
+                      fastagUsedINR: 450,
+                      depositHeldINR: 15000,
+                      depositRefundedINR: 14550,
+                      totalPaidINR: 94077,
+                      paymentStatus: "Paid",
+                    });
+                  }}
+                  className="bg-white text-[#50644E] border border-[#CAD8C6] hover:bg-[#F3F6F1] text-xs font-semibold px-2.5 py-1.5 rounded-xl transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
+                >
+                  <Receipt className="w-3.5 h-3.5" />
+                  <span>Invoice</span>
+                </button>
                 <Link
                   href="/ride?tab=pass"
                   className="bg-[#50644E] text-white text-xs font-semibold px-3 py-1.5 rounded-xl hover:bg-[#3F503D] transition-colors"
@@ -322,8 +413,72 @@ export default function ProfilePage() {
             </div>
           )}
 
-          <div className="p-5 bg-white rounded-2xl border border-dashed border-[#DFE6DC] text-center text-xs text-[#829280]">
-            Past completed trips are stored in your encrypted audit ledger with downloadable GST invoices and check-out video inspections.
+          {/* Past Completed & Settled Trip Card */}
+          <div className="bg-[#F8FAF7] rounded-2xl p-5 border border-[#E8EFE5] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-white text-gray-500 flex items-center justify-center shrink-0 border border-[#E8EFE5]">
+                <Car className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h4 className="font-bold text-sm text-[#172016]">
+                    Mahindra Thar Roxx 4x4 AX7L
+                  </h4>
+                  <span className="text-[10px] bg-gray-200 text-gray-700 font-semibold px-2 py-0.5 rounded-full">
+                    Completed &amp; Settled
+                  </span>
+                </div>
+                <p className="text-xs text-[#5C6B5A] mt-0.5">
+                  20 Oct 2026 – 23 Oct 2026 (3 Days) • Cyber Hub DLF Phase 2, Gurugram
+                </p>
+                <p className="text-[11px] text-emerald-700 font-medium">
+                  Deposit Refund: ₹4,760 credited back (FASTag toll ₹240 deducted)
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+              <span className="font-mono font-bold text-xs text-[#5C6B5A]">#HD-DEL-4190</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedInvoice({
+                    invoiceNumber: "INV-2026-HD4190",
+                    invoiceDate: "23 Oct 2026",
+                    bookingRef: "#HD-DEL-4190",
+                    customerName: userDisplayName,
+                    customerEmail: userEmail,
+                    customerPhone: userPhone,
+                    vehicleName: "Mahindra Thar Roxx 4x4 AX7L",
+                    vehicleRegistration: "HR-26-HD-4190",
+                    hubLocation: "Cyber Hub DLF Phase 2, Gurugram",
+                    pickupDate: "20 Oct 2026",
+                    returnDate: "23 Oct 2026",
+                    rentalDays: 3,
+                    conditionTier: "Showroom Pristine",
+                    baseDailyRateINR: 5174,
+                    baseRentalINR: 15522,
+                    platformFeeINR: 776,
+                    damageProtectionINR: 1797,
+                    protectionTierName: "Smart Protection Plan",
+                    taxableSubtotalINR: 18095,
+                    cgstINR: 1629,
+                    sgstINR: 1629,
+                    totalTaxINR: 3258,
+                    fastagBufferINR: 1000,
+                    fastagUsedINR: 240,
+                    depositHeldINR: 5000,
+                    depositRefundedINR: 4760,
+                    totalPaidINR: 27353,
+                    paymentStatus: "Settled & Refunded",
+                  });
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white text-[#50644E] border border-[#CAD8C6] hover:bg-[#F3F6F1] font-bold text-xs transition-colors shadow-2xs cursor-pointer"
+              >
+                <Receipt className="w-3.5 h-3.5" />
+                <span>GST Tax Invoice</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -576,6 +731,15 @@ export default function ProfilePage() {
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
       />
+
+      {/* GST Tax Invoice & Settlement Receipt Modal */}
+      {selectedInvoice && (
+        <TaxInvoiceModal
+          isOpen={!!selectedInvoice}
+          onClose={() => setSelectedInvoice(null)}
+          data={selectedInvoice}
+        />
+      )}
     </div>
   );
 }

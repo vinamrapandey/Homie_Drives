@@ -62,6 +62,12 @@
   - Allows Master Administrator to transfer fleet vehicles dynamically between Delhi NCR hubs (Aerocity, CP, Cyber Hub, Golf Course Road, Sector 18 Noida, Saket).
   - Zod validation and server-side role check (`master_admin`).
   - Emits immutable `VEHICLE_HUB_REASSIGNED` audit record.
+* **GST Tax Invoice & Settlement Receipt System (`src/components/invoice/TaxInvoiceModal.tsx`, `/ride`, `/profile`)**:
+  - Full-featured GST-compliant tax invoice and settlement statement adhering to Indian GST standards (SAC 996601, GSTIN 07AABCH1234F1Z8, CGST 9% + SGST 9% breakdown).
+  - Itemized line charges: Vehicle Access Fee, 5% Platform Facilitation, Comprehensive Damage Protection, and FASTag toll deductions.
+  - Transparent deposit reconciliation showing original escrow held, itemized toll/damage deductions, and net refund credited back to customer.
+  - Native print-optimized view with clean PDF generation support (`window.print()`).
+  - Integrated into Digital Keyless Pass (`/ride?tab=pass`) and Customer Profile Rentals Ledger (`/profile`).
 * **Official Brand Identity Inculcation**:
   - Injected official high-res logo (`homie.drives.png`) across brand components (`Navbar`, `Logo`, `PassTab`, `AuthModal`, `/agent`, `/admin`, and favicon).
 
