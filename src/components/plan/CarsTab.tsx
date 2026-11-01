@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { DEMO_CARS } from "@/data/cars";
+import { useVehicles } from "@/lib/supabase/fleet";
 import { Car, CarFiltersState } from "@/types/car";
 import { CarCard } from "@/components/cars/CarCard";
 import { CarFilters } from "@/components/cars/CarFilters";
@@ -9,6 +9,7 @@ import { CarDetailView } from "@/components/cars/CarDetailView";
 import { Search, X } from "lucide-react";
 
 export const CarsTab: React.FC = () => {
+  const { vehicles } = useVehicles();
   const [selectedCar, setSelectedCar] = useState<Car | null>(null);
   const [filters, setFilters] = useState<CarFiltersState>({
     searchQuery: "",
@@ -33,7 +34,7 @@ export const CarsTab: React.FC = () => {
   };
 
   const filteredCars = useMemo(() => {
-    return DEMO_CARS.filter((car) => {
+    return vehicles.filter((car) => {
       // Search Query
       if (
         filters.searchQuery &&
@@ -86,7 +87,7 @@ export const CarsTab: React.FC = () => {
 
       return true;
     });
-  }, [filters]);
+  }, [filters, vehicles]);
 
   return (
     <div>

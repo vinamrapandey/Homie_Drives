@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { DELHI_NCR_LOCATIONS } from "@/data/locations";
+import { useHubLocations } from "@/lib/supabase/fleet";
 import { MapPin, Calendar, Clock, Search, Sparkles, Compass } from "lucide-react";
 
 interface SearchPanelProps {
@@ -18,7 +18,8 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
   onSearch,
 }) => {
   const router = useRouter();
-  const [locationId, setLocationId] = useState(DELHI_NCR_LOCATIONS[0].id);
+  const { hubs } = useHubLocations();
+  const [locationId, setLocationId] = useState(hubs[0]?.id || "delhi-aerocity");
   const [pickupDate, setPickupDate] = useState<string>("2026-11-15");
   const [returnDate, setReturnDate] = useState<string>("2026-11-18");
   const [rentalType, setRentalType] = useState<"daily" | "long-term">("daily");
@@ -80,7 +81,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
               onChange={(e) => setLocationId(e.target.value)}
               className="w-full bg-transparent font-bold text-sm text-[#172016] focus:outline-none cursor-pointer"
             >
-              {DELHI_NCR_LOCATIONS.map((loc) => (
+              {hubs.map((loc) => (
                 <option key={loc.id} value={loc.id}>
                   {loc.name} ({loc.area})
                 </option>

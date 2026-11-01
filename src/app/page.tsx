@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { SearchPanel } from "@/components/booking/SearchPanel";
 import { CarCard } from "@/components/cars/CarCard";
-import { DEMO_CARS } from "@/data/cars";
+import { useVehicles } from "@/lib/supabase/fleet";
 import {
   Compass,
   ShieldCheck,
@@ -21,7 +21,8 @@ import {
 export default function HomePage() {
   const router = useRouter();
   const [bookingRefInput, setBookingRefInput] = useState("");
-  const featuredCars = DEMO_CARS.slice(0, 4);
+  const { vehicles } = useVehicles();
+  const featuredCars = vehicles.slice(0, 4);
 
   const handleLookupBooking = (e: React.FormEvent) => {
     e.preventDefault();
@@ -283,7 +284,7 @@ export default function HomePage() {
             href="/plan?tab=cars"
             className="inline-flex items-center gap-1.5 text-xs font-bold text-[#50644E] hover:text-[#3F503D] transition-colors"
           >
-            <span>View All Fleet ({DEMO_CARS.length})</span>
+            <span>View All Fleet ({vehicles.length})</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>

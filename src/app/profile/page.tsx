@@ -3,6 +3,8 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useActivePass } from "@/lib/passStorage";
+import { useAuth } from "@/lib/supabase/auth";
+import { AuthModal } from "@/components/auth/AuthModal";
 import { formatINR } from "@/lib/formatters";
 import {
   User,
@@ -16,6 +18,9 @@ import {
   CheckCircle,
   ShieldCheck,
   X,
+  LogIn,
+  LogOut,
+  Sparkles,
 } from "lucide-react";
 
 export default function ProfilePage() {
@@ -24,35 +29,90 @@ export default function ProfilePage() {
   >("overview");
   const activePass = useActivePass();
   const [showKycModal, setShowKycModal] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const { user, signOut } = useAuth();
+
+  const userInitials = user?.email
+    ? user.email.slice(0, 2).toUpperCase()
+    : "AS";
+  const userDisplayName = user?.user_metadata?.full_name || (user?.email ? user.email.split("@")[0] : "Arjun Sharma");
+  const userEmail = user?.email || "arjun.sharma@example.com";
+  const userPhone = user?.phone || "+91 98765 43210";
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-      {/* Page Title */}
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-black text-[#172016] tracking-tight">
-          Customer Profile & Settings
-        </h1>
-        <p className="text-xs sm:text-sm text-[#5C6B5A] mt-1">
-          Manage your Homie Drives profile, verification status, and rental documentation.
-        </p>
+      {/* Page Title & Auth CTA */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-black text-[#172016] tracking-tight">
+            Customer Profile & Settings
+          </h1>
+          <p className="text-xs sm:text-sm text-[#5C6B5A] mt-1">
+            Manage your Homie Drives profile, verification status, and rental documentation.
+          </p>
+        </div>
+
+        {user ? (
+          <button
+            type="button"
+            onClick={signOut}
+            className="self-start sm:self-auto inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 transition-colors"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span>Sign Out</span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setShowAuthModal(true)}
+            className="self-start sm:self-auto inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#50644E] hover:bg-[#3F503D] transition-colors shadow-sm"
+          >
+            <LogIn className="w-3.5 h-3.5" />
+            <span>Sign In with OTP</span>
+          </button>
+        )}
       </div>
+
+      {/* Auth Banner if Guest */}
+      {!user && (
+        <div className="bg-[#F3F6F1] border border-[#CAD8C6] rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <Sparkles className="w-5 h-5 text-[#50644E] shrink-0" />
+            <div>
+              <p className="text-xs font-bold text-[#172016]">
+                Viewing Demo Profile Mode
+              </p>
+              <p className="text-[11px] text-[#5C6B5A]">
+                Sign in with your email to unlock your personal rentals and real-time trip synchronization.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowAuthModal(true)}
+            className="text-xs font-bold text-[#50644E] hover:underline shrink-0"
+          >
+            Sign In Now →
+          </button>
+        </div>
+      )}
 
       {/* Account Overview Header Card */}
       <div className="bg-white rounded-[28px] p-6 sm:p-7 border border-[#E8EFE5] shadow-homie">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-[#F0F4ED]">
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 rounded-2xl bg-[#50644E] text-white flex items-center justify-center font-bold text-xl shadow-sm">
-              AS
+              {userInitials}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-xl font-bold text-[#172016]">Arjun Sharma</h2>
+                <h2 className="text-xl font-bold text-[#172016]">{userDisplayName}</h2>
                 <span className="text-[10px] font-bold bg-[#EAF0E7] text-[#50644E] px-2 py-0.5 rounded-full">
-                  Demo User
+                  {user ? "Supabase Auth" : "Demo User"}
                 </span>
               </div>
               <p className="text-xs text-[#5C6B5A] mt-0.5">
-                +91 98765 43210 • arjun.sharma@example.com
+                {userPhone} • {userEmail}
               </p>
               <p className="text-xs text-[#829280] mt-0.5 flex items-center gap-1">
                 <MapPin className="w-3.5 h-3.5 text-[#50644E]" />
@@ -64,7 +124,7 @@ export default function ProfilePage() {
           <div className="sm:text-right">
             <span className="text-[11px] text-[#829280] block">Fleet Membership</span>
             <span className="text-sm font-bold text-[#172016] block">
-              Homie Club Member
+              {user ? "Verified Member" : "Homie Club Member"}
             </span>
             <span className="text-xs text-emerald-700 font-medium">Active Account</span>
           </div>
@@ -426,6 +486,12 @@ export default function ProfilePage() {
           </div>
         </div>
       )}
+
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+      />
     </div>
   );
 }

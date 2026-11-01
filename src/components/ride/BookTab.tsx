@@ -1,21 +1,22 @@
 "use client";
 
 import React, { useState } from "react";
-import { DEMO_CARS } from "@/data/cars";
-import { DELHI_NCR_LOCATIONS } from "@/data/locations";
+import { useVehicles, useHubLocations } from "@/lib/supabase/fleet";
 import { Car } from "@/types/car";
 import { CarCard } from "@/components/cars/CarCard";
 import { CarDetailView } from "@/components/cars/CarDetailView";
 import { MapPin, Calendar, Clock, CheckCircle2 } from "lucide-react";
 
 export const BookTab: React.FC = () => {
-  const [selectedHub, setSelectedHub] = useState(DELHI_NCR_LOCATIONS[0].id);
+  const { vehicles } = useVehicles();
+  const { hubs } = useHubLocations();
+  const [selectedHub, setSelectedHub] = useState(hubs[0]?.id || "delhi-aerocity");
   const [pickupDate, setPickupDate] = useState("2026-11-15");
   const [returnDate, setReturnDate] = useState("2026-11-18");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [selectedCar, setSelectedCar] = useState<Car | null>(null);
 
-  const filteredCars = DEMO_CARS.filter((c) => {
+  const filteredCars = vehicles.filter((c) => {
     if (categoryFilter === "all") return true;
     return c.category === categoryFilter;
   });
@@ -48,7 +49,7 @@ export const BookTab: React.FC = () => {
               onChange={(e) => setSelectedHub(e.target.value)}
               className="w-full bg-transparent font-bold text-sm text-[#172016] focus:outline-none cursor-pointer"
             >
-              {DELHI_NCR_LOCATIONS.map((loc) => (
+              {hubs.map((loc) => (
                 <option key={loc.id} value={loc.id}>
                   {loc.name}
                 </option>

@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { createClient } from "./client";
 import { DELHI_NCR_LOCATIONS } from "@/data/locations";
 import { DEMO_CARS } from "@/data/cars";
@@ -66,5 +67,61 @@ export async function getVehicles(): Promise<Car[]> {
   } catch {
     return DEMO_CARS;
   }
+}
+
+/**
+ * React Hook to subscribe to vehicles with zero layout shift
+ */
+export function useVehicles() {
+  const [vehicles, setVehicles] = useState<Car[]>(DEMO_CARS);
+  const [loading, setLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    getVehicles()
+      .then((data) => {
+        if (isMounted) {
+          setVehicles(data);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (isMounted) setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  return { vehicles, loading };
+}
+
+/**
+ * React Hook to subscribe to operational hubs with zero layout shift
+ */
+export function useHubLocations() {
+  const [hubs, setHubs] = useState<LocationHub[]>(DELHI_NCR_LOCATIONS);
+  const [loading, setLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    getHubLocations()
+      .then((data) => {
+        if (isMounted) {
+          setHubs(data);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (isMounted) setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  return { hubs, loading };
 }
 
