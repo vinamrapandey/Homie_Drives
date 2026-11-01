@@ -53,6 +53,15 @@
   - Live modal dialog in Admin Portal for calibrating base daily rates and refundable security deposits.
   - Zod validation with min/max safety limits (₹1,999 - ₹99,999/day).
   - Mandatory audit reason classification (e.g. Seasonal Demand, Weekend Surcharge, Fleet Calibration) emitting immutable records to `public.audit_logs`.
+* **Trip Return & Deposit Settlement Engine (`src/actions/settlement.ts`, `src/components/agent/ReturnSettlementModal.tsx`)**:
+  - Live modal in Agent Portal for vehicle return protocol and deposit reconciliation.
+  - Return odometer mileage delta, fuel/battery % check, and deductions calculator (FASTag tolls, excess km, cleaning/damages).
+  - Transitions booking to `closed`, immediately releasing the PostgreSQL `rental_period TSTZRANGE` temporal exclusion lock for new reservations.
+  - Generates immutable financial audit log record in `public.audit_logs`.
+* **Multi-Hub Fleet Reassignment Engine (`src/actions/admin.ts`, `src/app/admin/page.tsx`)**:
+  - Allows Master Administrator to transfer fleet vehicles dynamically between Delhi NCR hubs (Aerocity, CP, Cyber Hub, Golf Course Road, Sector 18 Noida, Saket).
+  - Zod validation and server-side role check (`master_admin`).
+  - Emits immutable `VEHICLE_HUB_REASSIGNED` audit record.
 * **Official Brand Identity Inculcation**:
   - Injected official high-res logo (`homie.drives.png`) across brand components (`Navbar`, `Logo`, `PassTab`, `AuthModal`, `/agent`, `/admin`, and favicon).
 

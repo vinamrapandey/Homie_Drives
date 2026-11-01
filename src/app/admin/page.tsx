@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useAuth } from "@/lib/supabase/auth";
 import { useVehicles, useHubLocations } from "@/lib/supabase/fleet";
 import { updateVehiclePricingAction } from "@/actions/pricing";
+import { reassignVehicleHubAction } from "@/actions/admin";
 import { formatINR } from "@/lib/formatters";
 import { Car as CarType } from "@/types/car";
 import {
@@ -95,6 +96,61 @@ export default function MasterAdminPortalPage() {
       });
     } finally {
       setIsUpdatingPrice(false);
+    }
+  };
+
+  // Reassign Hub State
+  const [reassigningCar, setReassigningCar] = useState<CarType | null>(null);
+  const [targetHubId, setTargetHubId] = useState<string>("");
+  const [reassignReason, setReassignReason] = useState<string>("Fleet Rebalancing across Delhi NCR hubs");
+  const [isReassigning, setIsReassigning] = useState(false);
+  const [reassignFeedback, setReassignFeedback] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
+
+  const handleOpenReassignModal = (car: CarType) => {
+    setReassigningCar(car);
+    setTargetHubId(hubs[0]?.id || "");
+    setReassignReason("Fleet Rebalancing across Delhi NCR hubs");
+    setReassignFeedback(null);
+  };
+
+  const handleSaveReassign = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reassigningCar || !targetHubId) return;
+    setIsReassigning(true);
+    setReassignFeedback(null);
+
+    try {
+      const res = await reassignVehicleHubAction({
+        vehicleId: reassigningCar.id,
+        targetHubId,
+        reason: reassignReason,
+      });
+
+      if (res.success) {
+        setReassignFeedback({
+          type: "success",
+          message: res.message || `Reassigned ${reassigningCar.name} successfully.`,
+        });
+        setTimeout(() => {
+          setReassigningCar(null);
+          setReassignFeedback(null);
+        }, 1500);
+      } else {
+        setReassignFeedback({
+          type: "error",
+          message: res.error || "Failed to reassign hub.",
+        });
+      }
+    } catch (err) {
+      setReassignFeedback({
+        type: "error",
+        message: err instanceof Error ? err.message : "Unexpected error during hub reassignment.",
+      });
+    } finally {
+      setIsReassigning(false);
     }
   };
 
@@ -355,6 +411,14 @@ export default function MasterAdminPortalPage() {
                               <Edit3 className="w-3.5 h-3.5" />
                               Edit Rate
                             </button>
+                            <button
+                              onClick={() => handleOpenReassignModal(car)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-[#172016] bg-[#F3F6F1] hover:bg-[#E8EFE5] transition-colors cursor-pointer"
+                              title="Reassign to another Delhi NCR Operating Hub"
+                            >
+                              <MapPin className="w-3.5 h-3.5 text-[#50644E]" />
+                              Hub
+                            </button>
                             <Link
                               href={`/cars/${car.slug}`}
                               className="text-xs text-[#5C6B5A] hover:text-[#172016] font-semibold px-2 py-1.5"
@@ -603,6 +667,153 @@ export default function MasterAdminPortalPage() {
                       <>
                         <CheckCircle2 className="w-3.5 h-3.5" />
                         Apply &amp; Audit Log
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Vehicle Hub Reassignment Modal */}
+        {reassigningCar && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+            <div className="bg-white rounded-3xl max-w-lg w-full border border-[#E8EFE5] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+              <div className="p-5 sm:p-6 bg-[#172016] text-white flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-emerald-400">
+                    <MapPin className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-base">Fleet Hub Reassignment</h3>
+                    <p className="text-xs text-white/60">
+                      Transfer vehicle across Delhi NCR operational hubs
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setReassigningCar(null);
+                    setReassignFeedback(null);
+                  }}
+                  className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/80 hover:text-white transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveReassign} className="p-5 sm:p-6 space-y-5">
+                {/* Vehicle Card */}
+                <div className="flex items-center gap-4 p-3.5 bg-[#F8FAF7] rounded-2xl border border-[#E8EFE5]">
+                  <div className="w-16 h-10 relative rounded-lg bg-white overflow-hidden shrink-0 border border-[#E8EFE5]">
+                    <Image
+                      src={reassigningCar.image}
+                      alt={reassigningCar.name}
+                      fill
+                      className="object-contain p-1"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-bold text-sm text-[#172016] truncate">
+                      {reassigningCar.name}
+                    </h4>
+                    <p className="text-xs text-[#5C6B5A]">
+                      Current Hub: <strong className="text-[#50644E]">{reassigningCar.hubLocation}</strong>
+                    </p>
+                  </div>
+                </div>
+
+                {/* Target Hub Selector */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-[#172016]">
+                    Select Target Delhi NCR Operating Hub
+                  </label>
+                  <select
+                    value={targetHubId}
+                    onChange={(e) => setTargetHubId(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] bg-white outline-hidden"
+                    required
+                  >
+                    {hubs.map((hub) => (
+                      <option key={hub.id} value={hub.id}>
+                        {hub.name} ({hub.city})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Reassignment Justification */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-[#172016]">
+                    Operational Justification (Mandatory for Audit Trail)
+                  </label>
+                  <select
+                    value={reassignReason}
+                    onChange={(e) => setReassignReason(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] bg-white outline-hidden"
+                  >
+                    <option value="Fleet Rebalancing across Delhi NCR hubs">Fleet Rebalancing across Delhi NCR hubs</option>
+                    <option value="Surge Demand at Airport (Aerocity IGI)">Surge Demand at Airport (Aerocity IGI)</option>
+                    <option value="Corporate Fleet Allocation (Cyber Hub DLF)">Corporate Fleet Allocation (Cyber Hub DLF)</option>
+                    <option value="Maintenance / Detailing Transfer">Maintenance / Detailing Transfer</option>
+                    <option value="Special VIP Event Staging">Special VIP Event Staging</option>
+                  </select>
+                </div>
+
+                {/* Audit Notice */}
+                <div className="p-3 bg-blue-50 rounded-2xl border border-blue-200/80 flex items-start gap-2.5 text-xs text-blue-900">
+                  <ShieldCheck className="w-4 h-4 text-blue-700 shrink-0 mt-0.5" />
+                  <p>
+                    Reassigning will instantly shift vehicle pickup availability to the selected hub on the customer storefront and notify local hub agents.
+                  </p>
+                </div>
+
+                {/* Feedback */}
+                {reassignFeedback && (
+                  <div
+                    className={`p-3.5 rounded-xl text-xs font-semibold flex items-center gap-2 ${
+                      reassignFeedback.type === "success"
+                        ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                        : "bg-red-50 text-red-800 border border-red-200"
+                    }`}
+                  >
+                    {reassignFeedback.type === "success" ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                    )}
+                    <span>{reassignFeedback.message}</span>
+                  </div>
+                )}
+
+                {/* Form Buttons */}
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReassigningCar(null);
+                      setReassignFeedback(null);
+                    }}
+                    className="px-4 py-2.5 rounded-xl text-xs font-bold text-[#5C6B5A] hover:bg-[#F3F6F1] transition-colors cursor-pointer"
+                    disabled={isReassigning}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isReassigning}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-extrabold bg-[#50644E] hover:bg-[#3D4D3B] text-white shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+                  >
+                    {isReassigning ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        Reassigning Hub...
+                      </>
+                    ) : (
+                      <>
+                        <MapPin className="w-3.5 h-3.5" />
+                        Confirm Reassignment
                       </>
                     )}
                   </button>

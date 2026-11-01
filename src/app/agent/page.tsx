@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/supabase/auth";
 import { useVehicles, useHubLocations } from "@/lib/supabase/fleet";
 import { verifyPickupOtpAction, toggleVehicleOperationalStatusAction } from "@/actions/agent";
 import { InspectionModal } from "@/components/agent/InspectionModal";
+import { ReturnSettlementModal } from "@/components/agent/ReturnSettlementModal";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { formatINR } from "@/lib/formatters";
 import {
@@ -30,6 +31,7 @@ import {
   QrCode,
   LogIn,
   Video,
+  Receipt,
 } from "lucide-react";
 
 export default function AgentPortalPage() {
@@ -45,6 +47,14 @@ export default function AgentPortalPage() {
     code: string;
     vehicle: string;
     type: "pre_handover" | "return";
+  } | null>(null);
+
+  // Return & Settlement Modal State
+  const [settlementTarget, setSettlementTarget] = useState<{
+    code: string;
+    customer: string;
+    vehicle: string;
+    deposit: number;
   } | null>(null);
 
   // Handover OTP Modal State
@@ -295,12 +305,22 @@ export default function AgentPortalPage() {
                       </span>
                       <span
                         className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                          b.status === "verified_handover"
+                          b.status === "closed"
+                            ? "bg-gray-100 text-gray-700"
+                            : b.status === "returned_inspected"
+                            ? "bg-purple-100 text-purple-800"
+                            : b.status === "verified_handover"
                             ? "bg-blue-100 text-blue-800"
                             : "bg-amber-100 text-amber-800"
                         }`}
                       >
-                        {b.status === "verified_handover" ? "Handover Completed" : "Awaiting Customer OTP"}
+                        {b.status === "closed"
+                          ? "Trip Closed & Settled"
+                          : b.status === "returned_inspected"
+                          ? "Return Video Verified"
+                          : b.status === "verified_handover"
+                          ? "Handover Completed"
+                          : "Awaiting Customer OTP"}
                       </span>
                     </div>
 
@@ -314,10 +334,31 @@ export default function AgentPortalPage() {
                 </div>
 
                 <div className="flex items-center gap-2 self-end md:self-center">
-                  {b.status === "verified_handover" ? (
-                    <div className="flex items-center gap-2">
-                      <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
-                        <CheckCircle2 className="w-4 h-4" />
+                  {b.status === "closed" ? (
+                    <span className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-700 bg-gray-100 px-3 py-1.5 rounded-xl border border-gray-200">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      <span>Deposit Settled</span>
+                    </span>
+                  ) : b.status === "returned_inspected" ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSettlementTarget({
+                          code: b.bookingCode,
+                          customer: b.customerName,
+                          vehicle: b.carName,
+                          deposit: 5000,
+                        })
+                      }
+                      className="bg-[#50644E] hover:bg-[#3D4D3B] text-white text-xs font-bold py-1.5 px-3 rounded-xl flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                    >
+                      <Receipt className="w-3.5 h-3.5 text-emerald-300" />
+                      <span>Finalize Settlement</span>
+                    </button>
+                  ) : b.status === "verified_handover" ? (
+                    <div className="flex items-center gap-2 flex-wrap justify-end">
+                      <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1.5 rounded-xl border border-emerald-200">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
                         <span>Keys Handed</span>
                       </span>
                       <button
@@ -333,6 +374,21 @@ export default function AgentPortalPage() {
                       >
                         <Video className="w-3.5 h-3.5 text-emerald-400" />
                         <span>Return Video</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSettlementTarget({
+                            code: b.bookingCode,
+                            customer: b.customerName,
+                            vehicle: b.carName,
+                            deposit: 5000,
+                          })
+                        }
+                        className="bg-[#50644E] hover:bg-[#3D4D3B] text-white text-xs font-bold py-1.5 px-3 rounded-xl flex items-center gap-1 transition-all shadow-xs cursor-pointer"
+                      >
+                        <Receipt className="w-3.5 h-3.5 text-emerald-300" />
+                        <span>Settle</span>
                       </button>
                     </div>
                   ) : (
@@ -578,6 +634,25 @@ export default function AgentPortalPage() {
                 b.bookingCode === inspectionTarget.code
                   ? { ...b, status: "returned_inspected" }
                   : b
+              )
+            );
+          }}
+        />
+      )}
+
+      {/* Trip Return & Deposit Settlement Modal */}
+      {settlementTarget && (
+        <ReturnSettlementModal
+          isOpen={!!settlementTarget}
+          bookingCode={settlementTarget.code}
+          customerName={settlementTarget.customer}
+          vehicleName={settlementTarget.vehicle}
+          depositHeldINR={settlementTarget.deposit}
+          onClose={() => setSettlementTarget(null)}
+          onSuccess={(code, netRefund) => {
+            setPendingBookings((prev) =>
+              prev.map((b) =>
+                b.bookingCode === code ? { ...b, status: "closed" } : b
               )
             );
           }}
