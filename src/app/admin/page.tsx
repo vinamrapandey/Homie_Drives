@@ -6,7 +6,12 @@ import Link from "next/link";
 import { useAuth } from "@/lib/supabase/auth";
 import { useVehicles, useHubLocations } from "@/lib/supabase/fleet";
 import { updateVehiclePricingAction } from "@/actions/pricing";
-import { reassignVehicleHubAction, updateHubLocationAction } from "@/actions/admin";
+import {
+  reassignVehicleHubAction,
+  updateHubLocationAction,
+  createHubLocationAction,
+  toggleVehicleAvailabilityAction,
+} from "@/actions/admin";
 import { DELHI_NCR_LOCATIONS } from "@/data/locations";
 import { formatINR } from "@/lib/formatters";
 import { Car as CarType } from "@/types/car";
@@ -34,6 +39,9 @@ import {
   RefreshCw,
   X,
   Phone,
+  Plus,
+  ToggleLeft,
+  ToggleRight,
 } from "lucide-react";
 
 export default function MasterAdminPortalPage() {
@@ -138,6 +146,99 @@ export default function MasterAdminPortalPage() {
       });
     } finally {
       setIsUpdatingHub(false);
+    }
+  };
+
+  // Add New Hub State
+  const [isCreateHubModalOpen, setIsCreateHubModalOpen] = useState(false);
+  const [newHubName, setNewHubName] = useState("");
+  const [newHubSlug, setNewHubSlug] = useState("");
+  const [newHubArea, setNewHubArea] = useState("");
+  const [newHubCity, setNewHubCity] = useState("Delhi NCR");
+  const [newHubAddress, setNewHubAddress] = useState("");
+  const [newHubPhone, setNewHubPhone] = useState("8448786016");
+  const [newHubOperatingHours, setNewHubOperatingHours] = useState("24x7 Operational • Express Handover");
+  const [newHubStatus, setNewHubStatus] = useState<"active" | "maintenance">("active");
+  const [isCreatingHub, setIsCreatingHub] = useState(false);
+  const [createHubFeedback, setCreateHubFeedback] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
+
+  const handleCreateHub = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsCreatingHub(true);
+    setCreateHubFeedback(null);
+
+    const generatedSlug =
+      newHubSlug.trim() ||
+      newHubName
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "");
+
+    try {
+      const res = await createHubLocationAction({
+        name: newHubName.trim(),
+        slug: generatedSlug,
+        area: newHubArea.trim(),
+        city: newHubCity.trim(),
+        address: newHubAddress.trim(),
+        phone: newHubPhone.trim(),
+        operatingHours: newHubOperatingHours.trim(),
+        status: newHubStatus,
+        isPopular: true,
+      });
+
+      if (res.success && res.hub) {
+        setCreateHubFeedback({
+          type: "success",
+          message: res.message || "New operational hub added successfully.",
+        });
+        setAdminHubs((prev) => [res.hub!, ...prev]);
+        setTimeout(() => {
+          setIsCreateHubModalOpen(false);
+          setCreateHubFeedback(null);
+          setNewHubName("");
+          setNewHubSlug("");
+          setNewHubArea("");
+          setNewHubAddress("");
+        }, 1400);
+      } else {
+        setCreateHubFeedback({
+          type: "error",
+          message: res.error || "Failed to create operational hub.",
+        });
+      }
+    } catch (err) {
+      setCreateHubFeedback({
+        type: "error",
+        message: err instanceof Error ? err.message : "Error creating hub station",
+      });
+    } finally {
+      setIsCreatingHub(false);
+    }
+  };
+
+  // Toggle Vehicle Availability
+  const [togglingCarId, setTogglingCarId] = useState<string | null>(null);
+  const handleToggleCarAvailability = async (car: CarType) => {
+    setTogglingCarId(car.id);
+    const newStatus = !car.isAvailableDemo;
+
+    try {
+      await toggleVehicleAvailabilityAction({
+        vehicleId: car.id,
+        isAvailable: newStatus,
+        reason: newStatus
+          ? "Admin enabled vehicle availability"
+          : "Admin marked vehicle under scheduled maintenance",
+      });
+      car.isAvailableDemo = newStatus;
+    } catch {
+      // Fallback
+    } finally {
+      setTogglingCarId(null);
     }
   };
 
@@ -507,10 +608,24 @@ export default function MasterAdminPortalPage() {
                           {formatINR(car.dailyPriceINR)}/day
                         </td>
                         <td className="py-4 px-4">
-                          <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full text-[10px]">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                            <span>Active</span>
-                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleCarAvailability(car)}
+                            disabled={togglingCarId === car.id}
+                            className={`inline-flex items-center gap-1.5 font-bold px-2.5 py-1 rounded-full text-[10px] transition-all cursor-pointer ${
+                              car.isAvailableDemo
+                                ? "bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border border-emerald-300"
+                                : "bg-amber-100 hover:bg-amber-200 text-amber-800 border border-amber-300"
+                            }`}
+                            title="Click to toggle availability"
+                          >
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                car.isAvailableDemo ? "bg-emerald-600" : "bg-amber-600"
+                              }`}
+                            />
+                            <span>{car.isAvailableDemo ? "Available" : "Not Available"}</span>
+                          </button>
                         </td>
                         <td className="py-4 px-4 text-right">
                           <div className="flex items-center justify-end gap-2">
@@ -560,6 +675,17 @@ export default function MasterAdminPortalPage() {
                 <span className="text-xs font-bold text-[#50644E] bg-[#EAF0E7] px-3 py-1 rounded-full">
                   {adminHubs.length} Active Stations
                 </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCreateHubFeedback(null);
+                    setIsCreateHubModalOpen(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#50644E] hover:bg-[#3D4D3B] text-white text-xs font-extrabold shadow-sm transition-all cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add New Hub</span>
+                </button>
               </div>
             </div>
 
@@ -1217,6 +1343,182 @@ export default function MasterAdminPortalPage() {
                       <>
                         <CheckCircle2 className="w-3.5 h-3.5" />
                         Save Station Changes
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Create New Hub Modal Dialog */}
+        {isCreateHubModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+            <div className="bg-white rounded-3xl max-w-xl w-full border border-[#E8EFE5] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+              <div className="p-5 sm:p-6 bg-[#172016] text-white flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-emerald-400">
+                    <Plus className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-base">Provision New Hub Station</h3>
+                    <p className="text-xs text-white/60">
+                      Add a new regional dispatch location to Delhi NCR fleet network
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsCreateHubModalOpen(false)}
+                  className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/80 hover:text-white transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateHub} className="p-5 sm:p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">Station Name</label>
+                    <input
+                      type="text"
+                      value={newHubName}
+                      onChange={(e) => {
+                        setNewHubName(e.target.value);
+                        if (!newHubSlug) {
+                          setNewHubSlug(
+                            e.target.value
+                              .toLowerCase()
+                              .replace(/[^a-z0-9]+/g, "-")
+                              .replace(/(^-|-$)/g, "")
+                          );
+                        }
+                      }}
+                      placeholder="e.g. Noida Sector 62 Hub"
+                      className="w-full px-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] outline-hidden"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">URL Slug / Route Path</label>
+                    <input
+                      type="text"
+                      value={newHubSlug}
+                      onChange={(e) => setNewHubSlug(e.target.value)}
+                      placeholder="e.g. noida-sec-62-hub"
+                      className="w-full px-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-mono font-semibold text-[#172016] outline-hidden"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">Area / Landmark</label>
+                    <input
+                      type="text"
+                      value={newHubArea}
+                      onChange={(e) => setNewHubArea(e.target.value)}
+                      placeholder="e.g. Electronic City Metro / Tech Zone"
+                      className="w-full px-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] outline-hidden"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">City</label>
+                    <input
+                      type="text"
+                      value={newHubCity}
+                      onChange={(e) => setNewHubCity(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] outline-hidden"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-[#172016]">Full Physical Address</label>
+                  <textarea
+                    rows={2}
+                    value={newHubAddress}
+                    onChange={(e) => setNewHubAddress(e.target.value)}
+                    placeholder="Complete address for customer GPS navigation"
+                    className="w-full px-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] outline-hidden resize-none"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">Station Hotline</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#829280]">
+                        +91
+                      </span>
+                      <input
+                        type="text"
+                        value={newHubPhone}
+                        onChange={(e) => setNewHubPhone(e.target.value)}
+                        className="w-full pl-10 pr-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] outline-hidden font-mono"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">Status</label>
+                    <select
+                      value={newHubStatus}
+                      onChange={(e) => setNewHubStatus(e.target.value as "active" | "maintenance")}
+                      className="w-full px-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] bg-white outline-hidden"
+                    >
+                      <option value="active">Active 24x7</option>
+                      <option value="maintenance">Maintenance</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Feedback */}
+                {createHubFeedback && (
+                  <div
+                    className={`p-3 rounded-xl text-xs font-semibold flex items-center gap-2 ${
+                      createHubFeedback.type === "success"
+                        ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                        : "bg-red-50 text-red-800 border border-red-200"
+                    }`}
+                  >
+                    {createHubFeedback.type === "success" ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                    )}
+                    <span>{createHubFeedback.message}</span>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#F0F4ED]">
+                  <button
+                    type="button"
+                    onClick={() => setIsCreateHubModalOpen(false)}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-[#5C6B5A] hover:bg-[#F3F6F1] transition-colors cursor-pointer"
+                    disabled={isCreatingHub}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isCreatingHub}
+                    className="inline-flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-extrabold bg-[#50644E] hover:bg-[#3D4D3B] text-white shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+                  >
+                    {isCreatingHub ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        Creating Hub...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-3.5 h-3.5" />
+                        Create Hub Station
                       </>
                     )}
                   </button>
