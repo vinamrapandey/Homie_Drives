@@ -167,20 +167,27 @@ export const Navbar: React.FC = () => {
               <Link
                 href="/profile"
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#EAF0E7] hover:bg-[#DFE6DC] text-[#172016] text-xs font-bold transition-all"
-                title={user.email || "Profile"}
+                title={user.user_metadata?.full_name || user.email || user.phone || "Profile"}
               >
                 <div className="w-5 h-5 rounded-full bg-[#50644E] text-white flex items-center justify-center text-[10px]">
-                  {user.email ? user.email.charAt(0).toUpperCase() : "U"}
+                  {user.user_metadata?.full_name
+                    ? user.user_metadata.full_name[0].toUpperCase()
+                    : user.email
+                    ? user.email.charAt(0).toUpperCase()
+                    : user.phone
+                    ? user.phone.slice(-1)
+                    : "U"}
                 </div>
-                <span className="hidden sm:inline max-w-[100px] truncate">
-                  {user.email?.split("@")[0]}
+                <span className="hidden sm:inline max-w-[110px] truncate">
+                  {user.user_metadata?.full_name?.split(" ")[0] ||
+                    (user.email ? user.email.split("@")[0] : user.phone ? `+91 ${user.phone.slice(-4)}` : "Member")}
                 </span>
               </Link>
             ) : (
               <button
                 type="button"
                 onClick={() => setIsAuthModalOpen(true)}
-                className="hidden sm:inline-flex items-center gap-1 text-xs font-bold text-[#50644E] hover:text-[#172016] px-3 py-1.5 rounded-full hover:bg-[#F3F6F1] transition-all"
+                className="hidden sm:inline-flex items-center gap-1 text-xs font-bold text-[#50644E] hover:text-[#172016] px-3 py-1.5 rounded-full hover:bg-[#F3F6F1] transition-all cursor-pointer"
               >
                 <UserIcon className="w-3.5 h-3.5" />
                 <span>Sign In</span>

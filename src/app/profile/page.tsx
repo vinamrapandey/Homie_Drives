@@ -29,6 +29,9 @@ import {
   Receipt,
   Download,
   MessageCircle,
+  Edit3,
+  KeyRound,
+  ShieldAlert,
 } from "lucide-react";
 
 export default function ProfilePage() {
@@ -40,15 +43,76 @@ export default function ProfilePage() {
   const [showKycModal, setShowKycModal] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceData | null>(null);
-  const { user, signOut } = useAuth();
+  const { user, signOut, updateProfile, userRole } = useAuth();
   const { bookings, loading: bookingsLoading } = useUserBookings();
 
-  const userInitials = user?.email
-    ? user.email.slice(0, 2).toUpperCase()
-    : "AS";
-  const userDisplayName = user?.user_metadata?.full_name || (user?.email ? user.email.split("@")[0] : "Arjun Sharma");
-  const userEmail = user?.email || "arjun.sharma@example.com";
-  const userPhone = user?.phone || "+91 98765 43210";
+  // Profile Editor Modal State
+  const [showEditProfileModal, setShowEditProfileModal] = useState(false);
+  const [fullNameInput, setFullNameInput] = useState("");
+  const [phoneInput, setPhoneInput] = useState("");
+  const [dlInput, setDlInput] = useState("");
+  const [emergencyInput, setEmergencyInput] = useState("");
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [profileFeedback, setProfileFeedback] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
+
+  const userDisplayName =
+    user?.user_metadata?.full_name ||
+    (user?.email ? user.email.split("@")[0] : user?.phone ? `Member (${user.phone.slice(-4)})` : "Arjun Sharma");
+  const userEmail = user?.email || user?.user_metadata?.email || "Not linked";
+  const userPhone = user?.phone || user?.user_metadata?.phone_number || "+91 98765 43210";
+  const userDlNumber = user?.user_metadata?.digilocker_dl_number || "DL-0420230012345";
+  const userEmergencyContact = user?.user_metadata?.emergency_contact || "+91 84487 86016";
+
+  const userInitials = userDisplayName
+    ? userDisplayName
+        .split(" ")
+        .map((w: string) => w[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase()
+    : "HD";
+
+  const handleOpenEditProfile = () => {
+    setFullNameInput(userDisplayName);
+    setPhoneInput(userPhone.replace("+91", "").trim());
+    setDlInput(userDlNumber);
+    setEmergencyInput(userEmergencyContact);
+    setProfileFeedback(null);
+    setShowEditProfileModal(true);
+  };
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingProfile(true);
+    setProfileFeedback(null);
+
+    try {
+      await updateProfile({
+        full_name: fullNameInput.trim(),
+        phone_number: phoneInput.trim(),
+        dl_number: dlInput.trim(),
+        emergency_contact: emergencyInput.trim(),
+      });
+      setProfileFeedback({
+        type: "success",
+        message: "Profile details updated successfully.",
+      });
+      setTimeout(() => {
+        setShowEditProfileModal(false);
+        setProfileFeedback(null);
+      }, 1200);
+    } catch (err) {
+      setProfileFeedback({
+        type: "error",
+        message: err instanceof Error ? err.message : "Failed to update profile.",
+      });
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
@@ -63,25 +127,56 @@ export default function ProfilePage() {
           </p>
         </div>
 
-        {user ? (
-          <button
-            type="button"
-            onClick={signOut}
-            className="self-start sm:self-auto inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 transition-colors"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            <span>Sign Out</span>
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setShowAuthModal(true)}
-            className="self-start sm:self-auto inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#50644E] hover:bg-[#3F503D] transition-colors shadow-sm"
-          >
-            <LogIn className="w-3.5 h-3.5" />
-            <span>Sign In with OTP</span>
-          </button>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {userRole === "master_admin" && (
+            <Link
+              href="/admin"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-[#172016] hover:bg-[#253224] transition-colors border border-red-500/30"
+            >
+              <ShieldAlert className="w-3.5 h-3.5 text-red-400" />
+              <span>Admin Portal →</span>
+            </Link>
+          )}
+
+          {userRole === "agent" && (
+            <Link
+              href="/agent"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-[#172016] bg-emerald-100 hover:bg-emerald-200 transition-colors border border-emerald-300"
+            >
+              <span>Agent Portal →</span>
+            </Link>
+          )}
+
+          {user ? (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleOpenEditProfile}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-[#172016] bg-[#F3F6F1] hover:bg-[#E8EFE5] transition-colors border border-[#DFE6DC] cursor-pointer"
+              >
+                <Edit3 className="w-3.5 h-3.5 text-[#50644E]" />
+                <span>Edit Profile</span>
+              </button>
+              <button
+                type="button"
+                onClick={signOut}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 transition-colors cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Sign Out</span>
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowAuthModal(true)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#50644E] hover:bg-[#3F503D] transition-colors shadow-sm cursor-pointer"
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              <span>Sign In with OTP</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Auth Banner if Guest */}
@@ -127,7 +222,7 @@ export default function ProfilePage() {
               </p>
               <p className="text-xs text-[#829280] mt-0.5 flex items-center gap-1">
                 <MapPin className="w-3.5 h-3.5 text-[#50644E]" />
-                <span>Primary Hub: Aerocity Hub (IGI Airport, New Delhi)</span>
+                <span>Primary Hub: Ghaziabad Hub (RDC Raj Nagar • Delhi NCR)</span>
               </p>
             </div>
           </div>
@@ -155,7 +250,7 @@ export default function ProfilePage() {
                 </span>
               </div>
               <p className="text-xs text-[#5C6B5A] mt-0.5">
-                Indian Driving License (DL-0420230012345) &amp; Aadhaar e-KYC linked for keyless dispatch.
+                Indian Driving License ({userDlNumber}) &amp; Aadhaar e-KYC linked for keyless dispatch.
               </p>
             </div>
           </div>
@@ -740,6 +835,134 @@ export default function ProfilePage() {
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
       />
+
+      {/* Edit Profile Modal Dialog */}
+      {showEditProfileModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-[#DFE6DC] relative animate-in zoom-in-95">
+            <button
+              type="button"
+              onClick={() => {
+                setShowEditProfileModal(false);
+                setProfileFeedback(null);
+              }}
+              className="absolute top-5 right-5 p-2 rounded-full hover:bg-[#F3F6F1] text-[#829280] hover:text-[#172016] transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-10 h-10 rounded-2xl bg-[#50644E]/10 flex items-center justify-center text-[#50644E]">
+                <Edit3 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-[#172016]">
+                  Edit Profile Details
+                </h3>
+                <p className="text-xs text-[#5C6B5A]">
+                  Update your contact and driving verification credentials
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveProfile} className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-[#172016]">Full Name</label>
+                <input
+                  type="text"
+                  value={fullNameInput}
+                  onChange={(e) => setFullNameInput(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] outline-hidden"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-[#172016]">
+                  Indian Mobile Number (+91)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#829280]">
+                    +91
+                  </span>
+                  <input
+                    type="tel"
+                    value={phoneInput}
+                    onChange={(e) => setPhoneInput(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                    className="w-full pl-11 pr-3 py-2.5 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-bold font-mono text-[#172016] outline-hidden"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-[#172016]">
+                  Driving License Number (DL)
+                </label>
+                <input
+                  type="text"
+                  value={dlInput}
+                  onChange={(e) => setDlInput(e.target.value.toUpperCase())}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-mono font-bold text-[#172016] outline-hidden"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-[#172016]">
+                  Emergency Contact Phone
+                </label>
+                <input
+                  type="text"
+                  value={emergencyInput}
+                  onChange={(e) => setEmergencyInput(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] outline-hidden"
+                  placeholder="+91 84487 86016"
+                />
+              </div>
+
+              {profileFeedback && (
+                <div
+                  className={`p-3 rounded-xl text-xs font-semibold flex items-center gap-2 ${
+                    profileFeedback.type === "success"
+                      ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                      : "bg-red-50 text-red-800 border border-red-200"
+                  }`}
+                >
+                  {profileFeedback.type === "success" ? (
+                    <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                  ) : (
+                    <X className="w-4 h-4 text-red-600 shrink-0" />
+                  )}
+                  <span>{profileFeedback.message}</span>
+                </div>
+              )}
+
+              <div className="pt-2 flex items-center justify-end gap-2.5 border-t border-[#F0F4ED]">
+                <button
+                  type="button"
+                  onClick={() => setShowEditProfileModal(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-[#5C6B5A] hover:bg-[#F3F6F1] transition-colors cursor-pointer"
+                  disabled={isSavingProfile}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingProfile}
+                  className="px-5 py-2 rounded-xl text-xs font-bold bg-[#50644E] hover:bg-[#3F503D] text-white shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  {isSavingProfile ? (
+                    <span>Saving...</span>
+                  ) : (
+                    <span>Save Changes</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* GST Tax Invoice & Settlement Receipt Modal */}
       {selectedInvoice && (

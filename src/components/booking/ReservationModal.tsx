@@ -31,14 +31,16 @@ import {
   MessageCircle,
 } from "lucide-react";
 
-function getHubSlugFromLocation(location: string): string {
+function getHubSlugFromLocation(location: string, carHubSlug?: string): string {
+  if (carHubSlug) return carHubSlug;
   const loc = (location || "").toLowerCase();
-  if (loc.includes("cyber")) return "gurugram-cyberhub";
-  if (loc.includes("connaught") || loc.includes("cp")) return "delhi-cp";
-  if (loc.includes("golf")) return "gurugram-golfcourse";
-  if (loc.includes("noida") || loc.includes("18")) return "noida-sec18";
-  if (loc.includes("saket") || loc.includes("citywalk")) return "delhi-saket";
-  return "delhi-aerocity";
+  if (loc.includes("ghaziabad")) return "ghaziabad-hub";
+  if (loc.includes("faridabad")) return "faridabad-hub";
+  if (loc.includes("gurugram") || loc.includes("cyber")) return "gurugram-hub";
+  if (loc.includes("greater noida") || loc.includes("pari chowk")) return "greater-noida-hub";
+  if (loc.includes("noida") || loc.includes("18")) return "noida-hub";
+  if (loc.includes("meerut")) return "meerut-hub";
+  return "ghaziabad-hub";
 }
 
 interface ReservationModalProps {
@@ -141,7 +143,7 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
       try {
         const result = await createBookingAction({
           carSlug: car.slug,
-          hubSlug: getHubSlugFromLocation(car.hubLocation),
+          hubSlug: getHubSlugFromLocation(car.hubLocation, car.hubSlug),
           pickupDate,
           returnDate,
           pickupTime: "10:00 AM",
