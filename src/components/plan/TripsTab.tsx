@@ -10,6 +10,7 @@ import { RoadTripPlan, RoadTripPitstop } from "@/types/booking";
 import { Car } from "@/types/car";
 import { formatINR, calculateRentalDays } from "@/lib/formatters";
 import { ReservationModal } from "@/components/booking/ReservationModal";
+import { HighwayRouteMap } from "./HighwayRouteMap";
 import {
   Compass,
   MapPin,
@@ -61,6 +62,14 @@ export const TripsTab: React.FC = () => {
     }
     return DEMO_CARS[0];
   }, [activeTrip]);
+
+  // Selected Hub Object
+  const selectedHubObj = useMemo(() => {
+    return (
+      DELHI_NCR_LOCATIONS.find((loc) => loc.name === startHub) ||
+      DELHI_NCR_LOCATIONS[0]
+    );
+  }, [startHub]);
 
   // Duration in days
   const rentalDays = useMemo(() => {
@@ -254,7 +263,17 @@ export const TripsTab: React.FC = () => {
       </div>
 
       {/* ===================================================================
-          2. Corridor Telematics & Live Highway Advisory Ribbon
+          2. Interactive Highway Getaway Map & Route Direction Engine
+          =================================================================== */}
+      <HighwayRouteMap
+        trip={activeTrip}
+        startingHub={selectedHubObj}
+        journeyType={journeyType}
+        onSelectTrip={(id) => setSelectedTripId(id)}
+      />
+
+      {/* ===================================================================
+          3. Corridor Telematics & Live Highway Advisory Ribbon
           =================================================================== */}
       <div className="bg-[#172016] text-white rounded-[28px] p-5 sm:p-6 shadow-homie border border-[#2D3A2B] relative overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-4">
