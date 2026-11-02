@@ -307,6 +307,7 @@ export function useAuth() {
       dl_number?: string;
       email?: string;
       emergency_contact?: string;
+      dl_image_url?: string;
     }) => {
       if (!user) throw new Error("No active user session.");
 
@@ -316,6 +317,7 @@ export function useAuth() {
         ...(data.phone_number && { phone_number: formatIndianPhone(data.phone_number) }),
         ...(data.dl_number && { digilocker_dl_number: data.dl_number }),
         ...(data.emergency_contact && { emergency_contact: data.emergency_contact }),
+        ...(data.dl_image_url && { dl_image_url: data.dl_image_url }),
       };
 
       const updatedUser: User = {

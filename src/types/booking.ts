@@ -103,6 +103,7 @@ export interface DigiLockerKycRecord {
   verifiedAt: string;
   isAgeEligible: boolean;
   status: "verified" | "pending" | "unverified";
+  dlImageUrl?: string;
 }
 
 export interface RoadTripPitstop {

@@ -29,6 +29,10 @@ import {
   UserCheck,
   Phone,
   MessageCircle,
+  Upload,
+  Camera,
+  FileCheck,
+  Eye,
 } from "lucide-react";
 
 function getHubSlugFromLocation(location: string, carHubSlug?: string): string {
@@ -76,6 +80,7 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
   const [kycOtp, setKycOtp] = useState("8924");
   const [showOtpInput, setShowOtpInput] = useState(false);
   const [kycRecord, setKycRecord] = useState<DigiLockerKycRecord | null>(null);
+  const [dlImagePreview, setDlImagePreview] = useState<string | null>(null);
 
   // Step 3 Payment & Agreement state
   const [paymentMethod, setPaymentMethod] = useState<"upi" | "card" | "netbanking">("upi");
@@ -130,7 +135,26 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
       verifiedAt: "30-Oct-2026, 07:15 AM IST",
       isAgeEligible: true,
       status: "verified",
+      dlImageUrl: dlImagePreview || undefined,
     });
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        setDlImagePreview(result);
+        if (kycRecord) {
+          setKycRecord({
+            ...kycRecord,
+            dlImageUrl: result,
+          });
+        }
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleAuthorizeAndIssuePass = async () => {
@@ -540,6 +564,62 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
               </div>
             )}
 
+            {/* Optional Physical Driver License Upload with Instant Preview */}
+            <div className="bg-[#F8FAF7] border border-[#E8EFE5] p-4 rounded-2xl space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-xs font-bold text-[#172016] flex items-center gap-1.5">
+                    <Camera className="w-3.5 h-3.5 text-[#50644E]" />
+                    <span>Physical Driving License Photo (Optional Backup)</span>
+                  </h4>
+                  <p className="text-[11px] text-[#5C6B5A] mt-0.5">
+                    Upload front copy for rapid zero-contact security clearance at hub.
+                  </p>
+                </div>
+                {dlImagePreview && (
+                  <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <FileCheck className="w-3 h-3" />
+                    <span>Uploaded</span>
+                  </span>
+                )}
+              </div>
+
+              {dlImagePreview ? (
+                <div className="relative rounded-xl overflow-hidden border border-[#CAD8C6] bg-black/5 aspect-video max-h-36 flex items-center justify-center">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={dlImagePreview}
+                    alt="Driver License Front Preview"
+                    className="w-full h-full object-contain"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setDlImagePreview(null)}
+                    className="absolute top-2 right-2 p-1.5 rounded-full bg-black/70 hover:bg-black text-white transition-colors cursor-pointer"
+                    title="Remove image"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <label className="border-2 border-dashed border-[#CFD8CD] hover:border-[#50644E] hover:bg-[#F3F6F1] rounded-xl p-3 flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-colors text-center">
+                  <Upload className="w-5 h-5 text-[#50644E]" />
+                  <span className="text-xs font-bold text-[#172016]">
+                    Click or drag &amp; drop DL front photo
+                  </span>
+                  <span className="text-[10px] text-[#829280]">
+                    PNG, JPG, WEBP up to 5MB • Saved directly to profile
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                </label>
+              )}
+            </div>
+
             {/* Verified Driver Card */}
             {kycRecord && (
               <div className="bg-[#F0F7EE] border border-[#B9DDB5] p-4 rounded-2xl space-y-2.5 animate-in zoom-in-95">
@@ -871,9 +951,9 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
                   <strong className="text-white font-medium">{car.hubLocation}</strong>
                 </div>
                 <div>
-                  <span className="text-[10px] text-white/50 block">Keyless Digital PIN</span>
+                  <span className="text-[10px] text-white/50 block">Keyless Digital PIN / Pickup OTP</span>
                   <strong className="text-emerald-400 font-mono text-sm tracking-wider">
-                    PIN: {issuedPass?.pin || "8924"}
+                    OTP: {issuedPass?.pin || "8924"}
                   </strong>
                 </div>
                 <div>

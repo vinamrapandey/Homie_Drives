@@ -32,6 +32,9 @@ import {
   Edit3,
   KeyRound,
   ShieldAlert,
+  Upload,
+  Camera,
+  Image as ImageIcon,
 } from "lucide-react";
 
 export default function ProfilePage() {
@@ -52,6 +55,7 @@ export default function ProfilePage() {
   const [phoneInput, setPhoneInput] = useState("");
   const [dlInput, setDlInput] = useState("");
   const [emergencyInput, setEmergencyInput] = useState("");
+  const [dlImageInput, setDlImageInput] = useState<string | null>(null);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileFeedback, setProfileFeedback] = useState<{
     type: "success" | "error";
@@ -65,6 +69,7 @@ export default function ProfilePage() {
   const userPhone = user?.phone || user?.user_metadata?.phone_number || "+91 98765 43210";
   const userDlNumber = user?.user_metadata?.digilocker_dl_number || "DL-0420230012345";
   const userEmergencyContact = user?.user_metadata?.emergency_contact || "+91 84487 86016";
+  const userDlImage = user?.user_metadata?.dl_image_url || null;
 
   const userInitials = userDisplayName
     ? userDisplayName
@@ -80,8 +85,20 @@ export default function ProfilePage() {
     setPhoneInput(userPhone.replace("+91", "").trim());
     setDlInput(userDlNumber);
     setEmergencyInput(userEmergencyContact);
+    setDlImageInput(userDlImage);
     setProfileFeedback(null);
     setShowEditProfileModal(true);
+  };
+
+  const handleDlImageFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setDlImageInput(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleSaveProfile = async (e: React.FormEvent) => {
@@ -95,6 +112,7 @@ export default function ProfilePage() {
         phone_number: phoneInput.trim(),
         dl_number: dlInput.trim(),
         emergency_contact: emergencyInput.trim(),
+        dl_image_url: dlImageInput || undefined,
       });
       setProfileFeedback({
         type: "success",
@@ -812,6 +830,24 @@ export default function ProfilePage() {
               </div>
             </div>
 
+            {/* If user uploaded physical DL card photo, preview it here */}
+            {userDlImage && (
+              <div className="p-3 bg-[#F8FAF7] rounded-2xl border border-[#DFE6DC] space-y-1.5">
+                <span className="text-[11px] font-bold text-[#172016] flex items-center gap-1.5">
+                  <ImageIcon className="w-3.5 h-3.5 text-[#50644E]" />
+                  <span>Physical DL Photo Attached</span>
+                </span>
+                <div className="rounded-xl overflow-hidden border border-[#CFD8CD] bg-black/5 aspect-video max-h-36 flex items-center justify-center">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={userDlImage}
+                    alt="Physical DL Verification"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="p-3 bg-[#F8FAF7] rounded-xl text-xs text-[#5C6B5A] flex items-center gap-2">
               <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
               <span>
@@ -919,6 +955,56 @@ export default function ProfilePage() {
                   className="w-full px-3.5 py-2.5 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] outline-hidden"
                   placeholder="+91 84487 86016"
                 />
+              </div>
+
+              {/* Physical DL Card Photo Upload */}
+              <div className="space-y-1.5 pt-1">
+                <label className="text-xs font-bold text-[#172016] flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Camera className="w-3.5 h-3.5 text-[#50644E]" />
+                    <span>Driving License Front Card Photo</span>
+                  </span>
+                  {dlImageInput && (
+                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                      Photo Added
+                    </span>
+                  )}
+                </label>
+
+                {dlImageInput ? (
+                  <div className="relative rounded-xl overflow-hidden border border-[#CAD8C6] bg-black/5 aspect-video max-h-36 flex items-center justify-center">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={dlImageInput}
+                      alt="Driving License Preview"
+                      className="w-full h-full object-contain"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setDlImageInput(null)}
+                      className="absolute top-2 right-2 p-1.5 rounded-full bg-black/70 hover:bg-black text-white transition-colors cursor-pointer"
+                      title="Remove image"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="border-2 border-dashed border-[#CFD8CD] hover:border-[#50644E] hover:bg-[#F3F6F1] rounded-xl p-3 flex flex-col items-center justify-center gap-1 cursor-pointer transition-colors text-center">
+                    <Upload className="w-4 h-4 text-[#50644E]" />
+                    <span className="text-xs font-bold text-[#172016]">
+                      Upload DL front image
+                    </span>
+                    <span className="text-[10px] text-[#829280]">
+                      PNG, JPG up to 5MB
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleDlImageFile}
+                      className="hidden"
+                    />
+                  </label>
+                )}
               </div>
 
               {profileFeedback && (
