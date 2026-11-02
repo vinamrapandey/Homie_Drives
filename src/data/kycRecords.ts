@@ -185,3 +185,4 @@ export const INITIAL_KYC_RECORDS: CustomerKYCRecord[] = [
     createdAt: "2026-11-02T08:30:00Z",
   },
 ];
+

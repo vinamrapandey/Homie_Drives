@@ -9,6 +9,9 @@ import { useUserBookings, mapBookingToActivePass } from "@/lib/supabase/bookings
 import { AuthModal } from "@/components/auth/AuthModal";
 import { TaxInvoiceModal, InvoiceData } from "@/components/invoice/TaxInvoiceModal";
 import { formatINR } from "@/lib/formatters";
+import { CustomerKYCRecord } from "@/types/kyc";
+import { INITIAL_KYC_RECORDS } from "@/data/kycRecords";
+import { submitCustomerKYCAction } from "@/actions/kyc";
 import {
   User,
   FileText,
@@ -35,6 +38,13 @@ import {
   Upload,
   Camera,
   Image as ImageIcon,
+  CheckCircle2,
+  AlertTriangle,
+  RefreshCw,
+  FileBadge,
+  BadgeAlert,
+  ArrowRight,
+  Check,
 } from "lucide-react";
 
 export default function ProfilePage() {
@@ -79,6 +89,114 @@ export default function ProfilePage() {
         .slice(0, 2)
         .toUpperCase()
     : "HD";
+
+  // Customer KYC & DigiLocker Flow State
+  const [customerKyc, setCustomerKyc] = useState<CustomerKYCRecord>(
+    INITIAL_KYC_RECORDS[0]
+  );
+  const [showDigiLockerFlowModal, setShowDigiLockerFlowModal] = useState(false);
+  const [digiLockerStep, setDigiLockerStep] = useState<1 | 2 | 3>(1);
+  const [digiLockerFullName, setDigiLockerFullName] = useState(userDisplayName);
+  const [digiLockerPhone, setDigiLockerPhone] = useState("9811234567");
+  const [digiLockerAadhaar, setDigiLockerAadhaar] = useState("XXXXXXXX8492");
+  const [digiLockerDlNumber, setDigiLockerDlNumber] = useState("DL-04-2018-0091823");
+  const [digiLockerOtp, setDigiLockerOtp] = useState("8924");
+  const [isVerifyingDigiLocker, setIsVerifyingDigiLocker] = useState(false);
+  const [digiLockerUploadedImage, setDigiLockerUploadedImage] = useState<string | null>(null);
+  const [kycSubmitFeedback, setKycSubmitFeedback] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
+
+  const handleStartDigiLocker = () => {
+    setDigiLockerFullName(userDisplayName);
+    setDigiLockerPhone(userPhone.replace(/\D/g, "").slice(-10) || "9811234567");
+    setDigiLockerDlNumber(customerKyc.drivingLicense.dlNumber || "DL-04-2018-0091823");
+    setDigiLockerAadhaar(customerKyc.aadhaar.maskedNumber || "XXXXXXXX8492");
+    setDigiLockerOtp("8924");
+    setDigiLockerStep(1);
+    setKycSubmitFeedback(null);
+    setShowDigiLockerFlowModal(true);
+  };
+
+  const handleRequestOtp = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsVerifyingDigiLocker(true);
+    setKycSubmitFeedback(null);
+    setTimeout(() => {
+      setIsVerifyingDigiLocker(false);
+      setDigiLockerStep(2);
+    }, 700);
+  };
+
+  const handleVerifyOtp = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsVerifyingDigiLocker(true);
+    setKycSubmitFeedback(null);
+    setTimeout(() => {
+      setIsVerifyingDigiLocker(false);
+      setDigiLockerStep(3);
+    }, 600);
+  };
+
+  const handleDigiLockerImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setDigiLockerUploadedImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleConfirmAndSubmitKyc = async () => {
+    setIsVerifyingDigiLocker(true);
+    setKycSubmitFeedback(null);
+
+    try {
+      const res = await submitCustomerKYCAction({
+        fullName: digiLockerFullName,
+        phone: digiLockerPhone,
+        email: userEmail !== "Not linked" ? userEmail : "arjun.sharma@example.com",
+        aadhaarNumber: digiLockerAadhaar,
+        dob: "1997-04-12",
+        address: "B-4/112, Safdarjung Enclave",
+        city: "New Delhi",
+        state: "Delhi",
+        pincode: "110029",
+        dlNumber: digiLockerDlNumber,
+        issuingRTO: "DL-04 Janakpuri, West Delhi",
+        vehicleClasses: ["LMV-NT", "MCWG"],
+        expiryDate: "2038-05-13",
+        cardImageUrl: digiLockerUploadedImage || undefined,
+      });
+
+      if (res.success && res.record) {
+        setCustomerKyc(res.record as CustomerKYCRecord);
+        setKycSubmitFeedback({
+          type: "success",
+          message: res.message || "DigiLocker verification successfully completed!",
+        });
+        setTimeout(() => {
+          setShowDigiLockerFlowModal(false);
+          setKycSubmitFeedback(null);
+        }, 1500);
+      } else {
+        setKycSubmitFeedback({
+          type: "error",
+          message: res.error || "Failed to submit DigiLocker verification.",
+        });
+      }
+    } catch (err) {
+      setKycSubmitFeedback({
+        type: "error",
+        message: err instanceof Error ? err.message : "Error submitting KYC.",
+      });
+    } finally {
+      setIsVerifyingDigiLocker(false);
+    }
+  };
 
   const handleOpenEditProfile = () => {
     setFullNameInput(userDisplayName);
@@ -254,31 +372,76 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Verification Status Card */}
-        <div className="mt-5 p-4 rounded-2xl bg-[#EAF0E7] border border-[#CAD8C6] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-[#2F3D2E]">
+        {/* Dynamic DigiLocker Verification Status Card */}
+        <div
+          className={`mt-5 p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs ${
+            customerKyc.digilockerStatus === "verified"
+              ? "bg-[#EAF0E7] border-[#CAD8C6] text-[#2F3D2E]"
+              : customerKyc.digilockerStatus === "pending_review"
+              ? "bg-amber-50 border-amber-200 text-amber-900"
+              : "bg-rose-50 border-rose-200 text-rose-900"
+          }`}
+        >
           <div className="flex items-start gap-2.5">
-            <ShieldCheck className="w-5 h-5 text-[#50644E] shrink-0 mt-0.5" />
+            {customerKyc.digilockerStatus === "verified" ? (
+              <ShieldCheck className="w-5 h-5 text-[#50644E] shrink-0 mt-0.5" />
+            ) : customerKyc.digilockerStatus === "pending_review" ? (
+              <RefreshCw className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            ) : (
+              <ShieldAlert className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+            )}
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <p className="font-bold text-sm text-[#172016]">
-                  DigiLocker Driver KYC Authenticated
+                  {customerKyc.digilockerStatus === "verified"
+                    ? "DigiLocker Driver KYC Authenticated"
+                    : customerKyc.digilockerStatus === "pending_review"
+                    ? "DigiLocker KYC Pending Administrative Review"
+                    : "Action Required: Driver Credential Flagged"}
                 </p>
-                <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
-                  Government Verified
+                <span
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                    customerKyc.digilockerStatus === "verified"
+                      ? "bg-emerald-100 text-emerald-800"
+                      : customerKyc.digilockerStatus === "pending_review"
+                      ? "bg-amber-200 text-amber-900"
+                      : "bg-rose-200 text-rose-900"
+                  }`}
+                >
+                  {customerKyc.digilockerStatus === "verified"
+                    ? "Government Verified"
+                    : customerKyc.digilockerStatus === "pending_review"
+                    ? "Under Review"
+                    : "Policy Alert"}
                 </span>
               </div>
               <p className="text-xs text-[#5C6B5A] mt-0.5">
-                Indian Driving License ({userDlNumber}) &amp; Aadhaar e-KYC linked for keyless dispatch.
+                {customerKyc.digilockerStatus === "verified"
+                  ? `Indian DL (${customerKyc.drivingLicense.dlNumber}) & Masked Aadhaar (${customerKyc.aadhaar.maskedNumber}) authenticated via MoRTH Sarathi.`
+                  : customerKyc.digilockerStatus === "pending_review"
+                  ? `Credentials submitted for ${customerKyc.fullName}. Awaiting visual agent check for keyless dispatch approval.`
+                  : customerKyc.reviewNotes || "Customer driving credentials require compliance review or document re-upload."}
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowKycModal(true)}
-            className="bg-[#50644E] hover:bg-[#3F503D] text-white font-bold text-xs py-2 px-4 rounded-xl shrink-0 transition-colors cursor-pointer"
-          >
-            View DigiLocker Card
-          </button>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={() => setShowKycModal(true)}
+              className="flex-1 sm:flex-initial bg-white text-[#50644E] border border-[#CAD8C6] hover:bg-[#F3F6F1] font-bold text-xs py-2 px-3.5 rounded-xl shrink-0 transition-colors cursor-pointer shadow-2xs"
+            >
+              View Credential
+            </button>
+            <button
+              type="button"
+              onClick={handleStartDigiLocker}
+              className="flex-1 sm:flex-initial bg-[#50644E] hover:bg-[#3F503D] text-white font-bold text-xs py-2 px-4 rounded-xl shrink-0 transition-colors cursor-pointer shadow-xs"
+            >
+              {customerKyc.digilockerStatus === "verified"
+                ? "Update DL"
+                : "Connect DigiLocker"}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -792,7 +955,7 @@ export default function ProfilePage() {
                   </span>
                 </div>
                 <span className="text-[10px] bg-emerald-400/20 text-emerald-300 font-bold px-2 py-0.5 rounded border border-emerald-400/30">
-                  LMV-NT
+                  {customerKyc.drivingLicense.vehicleClasses[0] || "LMV-NT"}
                 </span>
               </div>
 
@@ -800,68 +963,422 @@ export default function ProfilePage() {
                 <div>
                   <span className="text-[10px] text-white/50 block">DL Number</span>
                   <span className="font-mono font-bold text-sm text-emerald-300">
-                    {activePass?.dlNumber || "DL-0420230012345"}
+                    {customerKyc.drivingLicense.dlNumber}
                   </span>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 pt-1 text-[11px]">
                   <div>
                     <span className="text-[10px] text-white/50 block">Licensee</span>
-                    <strong className="text-white">{activePass?.driverName || "Arjun Sharma"}</strong>
+                    <strong className="text-white">{customerKyc.fullName}</strong>
                   </div>
                   <div>
-                    <span className="text-[10px] text-white/50 block">Date of Birth</span>
-                    <span className="text-white">14-Aug-1996 (Age 28)</span>
+                    <span className="text-[10px] text-white/50 block">Aadhaar (UIDAI)</span>
+                    <span className="font-mono text-emerald-300">
+                      {customerKyc.aadhaar.maskedNumber}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-white/50 block">Date of Birth &amp; Age</span>
+                    <span className="text-white">
+                      {customerKyc.aadhaar.dob} ({customerKyc.aadhaar.age} yrs)
+                    </span>
                   </div>
                   <div>
                     <span className="text-[10px] text-white/50 block">Valid Until</span>
-                    <span className="text-white">24-Jul-2038</span>
+                    <span className="text-white">{customerKyc.drivingLicense.expiryDate}</span>
                   </div>
-                  <div>
+                  <div className="col-span-2">
                     <span className="text-[10px] text-white/50 block">Issuing Authority</span>
-                    <span className="text-white">RTO DL-04 Janakpuri</span>
+                    <span className="text-white">{customerKyc.drivingLicense.issuingRTO}</span>
                   </div>
                 </div>
               </div>
 
               <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[10px] text-white/60">
                 <span>Cryptographically Authenticated</span>
-                <span className="text-emerald-400 font-bold">SHA-256 Validated</span>
+                <span className="text-emerald-400 font-bold">SHA-256 DigiLocker Match</span>
               </div>
             </div>
 
             {/* If user uploaded physical DL card photo, preview it here */}
-            {userDlImage && (
+            {(customerKyc.drivingLicense.cardImageUrl || userDlImage) && (
               <div className="p-3 bg-[#F8FAF7] rounded-2xl border border-[#DFE6DC] space-y-1.5">
                 <span className="text-[11px] font-bold text-[#172016] flex items-center gap-1.5">
                   <ImageIcon className="w-3.5 h-3.5 text-[#50644E]" />
                   <span>Physical DL Photo Attached</span>
                 </span>
-                <div className="rounded-xl overflow-hidden border border-[#CFD8CD] bg-black/5 aspect-video max-h-36 flex items-center justify-center">
+                <div className="relative rounded-xl overflow-hidden border border-[#CFD8CD] bg-black/5 aspect-video max-h-36 flex items-center justify-center">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={userDlImage}
+                    src={customerKyc.drivingLicense.cardImageUrl || userDlImage || ""}
                     alt="Physical DL Verification"
                     className="w-full h-full object-contain"
                   />
+                  <div className="absolute inset-0 bg-black/30 flex items-center justify-center pointer-events-none">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-white bg-black/60 px-2 py-0.5 rounded backdrop-blur-xs">
+                      DigiLocker Verified Card
+                    </span>
+                  </div>
                 </div>
               </div>
             )}
 
-            <div className="p-3 bg-[#F8FAF7] rounded-xl text-xs text-[#5C6B5A] flex items-center gap-2">
-              <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+            <div
+              className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
+                customerKyc.aadhaar.ageCheckPassed
+                  ? "bg-[#F8FAF7] text-[#5C6B5A]"
+                  : "bg-rose-50 text-rose-800 border border-rose-200"
+              }`}
+            >
+              {customerKyc.aadhaar.ageCheckPassed ? (
+                <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+              ) : (
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+              )}
               <span>
-                Eligible for all Homie Drives luxury SUVs, city EVs, and supercars in Delhi NCR.
+                {customerKyc.aadhaar.ageCheckPassed
+                  ? "Eligible for all Homie Drives luxury SUVs, city EVs, and supercars in Delhi NCR."
+                  : "Policy Notice: Homie Drives minimum self-drive requirement is 23+ years."}
               </span>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setShowKycModal(false)}
-              className="w-full py-3 rounded-full bg-[#50644E] text-white font-bold text-xs hover:bg-[#3F503D] transition-colors cursor-pointer"
-            >
-              Close Credential
-            </button>
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowKycModal(false);
+                  handleStartDigiLocker();
+                }}
+                className="flex-1 py-2.5 rounded-full bg-white text-[#50644E] border border-[#CAD8C6] hover:bg-[#F3F6F1] font-bold text-xs transition-colors cursor-pointer"
+              >
+                Re-link or Update
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowKycModal(false)}
+                className="flex-1 py-2.5 rounded-full bg-[#50644E] text-white font-bold text-xs hover:bg-[#3F503D] transition-colors cursor-pointer"
+              >
+                Close Credential
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Interactive DigiLocker Connect & Verification Modal */}
+      {showDigiLockerFlowModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-lg rounded-3xl p-6 sm:p-7 shadow-homie-lg border border-[#E1E8DF] relative space-y-5 animate-in zoom-in-95">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3.5 border-b border-[#F0F4ED]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-[#EAF0E7] flex items-center justify-center text-[#50644E]">
+                  <FileBadge className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm text-[#172016] flex items-center gap-2">
+                    <span>DigiLocker Driver Verification</span>
+                    <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-200">
+                      Step {digiLockerStep} of 3
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-[#5C6B5A]">
+                    Govt. of India Digital Locker • MoRTH Sarathi &amp; UIDAI
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDigiLockerFlowModal(false);
+                  setKycSubmitFeedback(null);
+                }}
+                className="w-8 h-8 rounded-full bg-[#F3F6F1] hover:bg-[#EAF0E7] flex items-center justify-center text-[#5C6B5A] hover:text-[#172016] transition-colors cursor-pointer"
+                aria-label="Close modal"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* STEP 1: Enter License & Phone */}
+            {digiLockerStep === 1 && (
+              <form onSubmit={handleRequestOtp} className="space-y-4">
+                <div className="p-3.5 bg-[#F8FAF7] rounded-2xl border border-[#E8EFE5] text-xs text-[#5C6B5A] space-y-1">
+                  <p className="font-bold text-[#172016]">Instant Driver Credential Fetch</p>
+                  <p>
+                    DigiLocker connects with MoRTH Sarathi to verify your Indian Driving License and checks 23+ self-drive eligibility.
+                  </p>
+                </div>
+
+                <div className="space-y-3 text-xs">
+                  <div>
+                    <label className="font-bold text-[#172016] block mb-1">
+                      Full Legal Name (as per Driving License)
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={digiLockerFullName}
+                      onChange={(e) => setDigiLockerFullName(e.target.value)}
+                      placeholder="e.g. Arjun Sharma"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] font-medium text-[#172016] outline-hidden bg-white"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="font-bold text-[#172016] block mb-1">
+                        Registered Mobile (+91)
+                      </label>
+                      <input
+                        type="tel"
+                        required
+                        value={digiLockerPhone}
+                        onChange={(e) => setDigiLockerPhone(e.target.value)}
+                        placeholder="10-digit mobile"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] font-mono text-[#172016] outline-hidden bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-[#172016] block mb-1">
+                        Aadhaar Number / Token
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={digiLockerAadhaar}
+                        onChange={(e) => setDigiLockerAadhaar(e.target.value)}
+                        placeholder="XXXX-XXXX-8492"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] font-mono text-[#172016] outline-hidden bg-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-[#172016] block mb-1">
+                      Indian Driving License Number
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={digiLockerDlNumber}
+                      onChange={(e) => setDigiLockerDlNumber(e.target.value.toUpperCase())}
+                      placeholder="e.g. DL-04-2018-0091823"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] font-mono font-bold text-[#172016] outline-hidden bg-white"
+                    />
+                    <p className="text-[10px] text-[#829280] mt-1">
+                      Valid Delhi, UP, or Haryana State RTO license required.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowDigiLockerFlowModal(false)}
+                    className="px-4 py-2.5 rounded-xl text-xs font-bold text-[#5C6B5A] hover:bg-[#F3F6F1] transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isVerifyingDigiLocker}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-extrabold bg-[#50644E] hover:bg-[#3D4D3B] text-white shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+                  >
+                    {isVerifyingDigiLocker ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Connecting to Gateway...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Request DigiLocker OTP</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* STEP 2: Enter Aadhaar OTP */}
+            {digiLockerStep === 2 && (
+              <form onSubmit={handleVerifyOtp} className="space-y-4">
+                <div className="p-3.5 bg-emerald-50 rounded-2xl border border-emerald-200 text-xs text-emerald-900 space-y-1">
+                  <p className="font-bold flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>DigiLocker OTP Dispatched</span>
+                  </p>
+                  <p className="text-[11px] text-emerald-800">
+                    A 6-digit authentication OTP was sent to your Aadhaar-linked mobile ending in {digiLockerPhone.slice(-4) || "4567"}.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-[#172016] block">
+                    Enter Verification OTP
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      maxLength={6}
+                      required
+                      value={digiLockerOtp}
+                      onChange={(e) => setDigiLockerOtp(e.target.value)}
+                      placeholder="8924"
+                      className="w-full text-center tracking-widest text-lg font-mono font-black py-2.5 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] outline-hidden bg-white"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] text-[#5C6B5A]">
+                    <span>Sandbox Demo OTP: <strong>8924</strong></span>
+                    <button
+                      type="button"
+                      onClick={() => setDigiLockerOtp("8924")}
+                      className="text-[#50644E] font-bold hover:underline cursor-pointer"
+                    >
+                      Auto-fill
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setDigiLockerStep(1)}
+                    className="px-4 py-2.5 rounded-xl text-xs font-bold text-[#5C6B5A] hover:bg-[#F3F6F1] transition-colors cursor-pointer"
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isVerifyingDigiLocker || !digiLockerOtp}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-extrabold bg-[#50644E] hover:bg-[#3D4D3B] text-white shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+                  >
+                    {isVerifyingDigiLocker ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Verifying MoRTH Token...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Verify &amp; Fetch Records</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* STEP 3: Review Fetched Records & Attach Optional Card Photo */}
+            {digiLockerStep === 3 && (
+              <div className="space-y-4">
+                <div className="p-3.5 bg-[#F8FAF7] rounded-2xl border border-[#E8EFE5] space-y-2 text-xs">
+                  <div className="flex items-center justify-between border-b border-[#E8EFE5] pb-2">
+                    <span className="font-bold text-[#172016]">Fetched MoRTH Sarathi Record</span>
+                    <span className="text-[10px] font-mono font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+                      Cryptographically Validated
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-[11px]">
+                    <div>
+                      <span className="text-[#829280] block text-[10px]">Licensee</span>
+                      <strong className="text-[#172016]">{digiLockerFullName}</strong>
+                    </div>
+                    <div>
+                      <span className="text-[#829280] block text-[10px]">Aadhaar Masked</span>
+                      <span className="font-mono text-[#172016]">
+                        XXXXXXXX{digiLockerAadhaar.replace(/\D/g, "").slice(-4) || "8492"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[#829280] block text-[10px]">DL Number</span>
+                      <span className="font-mono font-bold text-[#172016]">{digiLockerDlNumber}</span>
+                    </div>
+                    <div>
+                      <span className="text-[#829280] block text-[10px]">Class &amp; Expiry</span>
+                      <span className="text-[#172016]">LMV-NT • 13-May-2038</span>
+                    </div>
+                  </div>
+
+                  {/* 23+ Policy Status Banner */}
+                  <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 flex items-center gap-2 text-[11px] font-bold">
+                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>23+ Policy Passed: Eligible for Self-Drive Fleet Dispatch</span>
+                  </div>
+                </div>
+
+                {/* Optional Physical Card Photo Upload */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-[#172016] flex items-center justify-between">
+                    <span>Physical Driving License Photo (Optional)</span>
+                    <span className="text-[10px] text-[#829280]">Backing proof for dispatch agent</span>
+                  </label>
+                  <label className="flex items-center justify-center p-4 border-2 border-dashed border-[#CFD8CD] hover:border-[#50644E] rounded-2xl cursor-pointer bg-[#FAFBF9] transition-all group">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleDigiLockerImageUpload}
+                      className="hidden"
+                    />
+                    <div className="text-center text-xs space-y-1">
+                      <Camera className="w-5 h-5 text-[#829280] group-hover:text-[#50644E] mx-auto transition-colors" />
+                      <span className="font-semibold text-[#50644E] block">
+                        {digiLockerUploadedImage ? "Photo Selected (Click to change)" : "Upload or Take DL Card Photo"}
+                      </span>
+                    </div>
+                  </label>
+                </div>
+
+                {/* Feedback */}
+                {kycSubmitFeedback && (
+                  <div
+                    className={`p-3 rounded-xl text-xs font-semibold flex items-center gap-2 ${
+                      kycSubmitFeedback.type === "success"
+                        ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                        : "bg-red-50 text-red-800 border border-red-200"
+                    }`}
+                  >
+                    {kycSubmitFeedback.type === "success" ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                    )}
+                    <span>{kycSubmitFeedback.message}</span>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setDigiLockerStep(2)}
+                    className="px-4 py-2.5 rounded-xl text-xs font-bold text-[#5C6B5A] hover:bg-[#F3F6F1] transition-colors cursor-pointer"
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmAndSubmitKyc}
+                    disabled={isVerifyingDigiLocker}
+                    className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-extrabold bg-[#50644E] hover:bg-[#3D4D3B] text-white shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+                  >
+                    {isVerifyingDigiLocker ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Saving to Profile...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Confirm &amp; Link to Profile</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

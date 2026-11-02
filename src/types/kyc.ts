@@ -48,3 +48,4 @@ export interface CustomerKYCRecord {
   reviewedAt?: string;
   createdAt: string;
 }
+
