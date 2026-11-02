@@ -8,6 +8,7 @@ import { useVehicles, useHubLocations } from "@/lib/supabase/fleet";
 import { verifyPickupOtpAction, toggleVehicleOperationalStatusAction } from "@/actions/agent";
 import { InspectionModal } from "@/components/agent/InspectionModal";
 import { ReturnSettlementModal } from "@/components/agent/ReturnSettlementModal";
+import { DigitalAgreementModal } from "@/components/agent/DigitalAgreementModal";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { formatINR } from "@/lib/formatters";
 import {
@@ -32,6 +33,7 @@ import {
   LogIn,
   Video,
   Receipt,
+  FileText,
 } from "lucide-react";
 
 export default function AgentPortalPage() {
@@ -78,6 +80,16 @@ export default function AgentPortalPage() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [verifyError, setVerifyError] = useState<string | null>(null);
   const [verifySuccess, setVerifySuccess] = useState<string | null>(null);
+
+  // Digital Agreement Modal State
+  const [agreementTarget, setAgreementTarget] = useState<{
+    bookingCode: string;
+    customerName: string;
+    customerPhone: string;
+    vehicleName: string;
+    pickupDate: string;
+    returnDate: string;
+  } | null>(null);
 
   // Active Hub
   const currentHub =
@@ -400,14 +412,34 @@ export default function AgentPortalPage() {
                       </button>
                     </div>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => handleOpenVerifyModal(b.bookingCode, b.otp)}
-                      className="bg-[#50644E] hover:bg-[#3F503D] active:scale-95 text-white font-bold text-xs py-2 px-4 rounded-xl flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
-                    >
-                      <KeyRound className="w-3.5 h-3.5" />
-                      <span>Verify Customer OTP ({b.otp})</span>
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setAgreementTarget({
+                            bookingCode: b.bookingCode,
+                            customerName: b.customerName,
+                            customerPhone: b.customerPhone,
+                            vehicleName: b.carName,
+                            pickupDate: b.pickupDate,
+                            returnDate: b.returnDate,
+                          })
+                        }
+                        className="bg-white hover:bg-[#F3F6F1] text-[#50644E] border border-[#CAD8C6] text-xs font-bold py-2 px-3 rounded-xl flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer"
+                        title="View & E-Sign Rental Agreement"
+                      >
+                        <FileText className="w-3.5 h-3.5 text-[#50644E]" />
+                        <span>Agreement</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenVerifyModal(b.bookingCode, b.otp)}
+                        className="bg-[#50644E] hover:bg-[#3F503D] active:scale-95 text-white font-bold text-xs py-2 px-4 rounded-xl flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+                      >
+                        <KeyRound className="w-3.5 h-3.5" />
+                        <span>Verify Customer OTP ({b.otp})</span>
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -663,6 +695,24 @@ export default function AgentPortalPage() {
                 b.bookingCode === code ? { ...b, status: "closed" } : b
               )
             );
+          }}
+        />
+      )}
+
+      {/* Digital Rental Agreement E-Signature Modal */}
+      {agreementTarget && (
+        <DigitalAgreementModal
+          isOpen={!!agreementTarget}
+          onClose={() => setAgreementTarget(null)}
+          bookingCode={agreementTarget.bookingCode}
+          customerName={agreementTarget.customerName}
+          customerPhone={agreementTarget.customerPhone}
+          vehicleName={agreementTarget.vehicleName}
+          hubLocation={currentHub?.name || "Delhi NCR Hub"}
+          pickupDate={agreementTarget.pickupDate}
+          returnDate={agreementTarget.returnDate}
+          onSignComplete={(sig) => {
+            // Ratified signature callback
           }}
         />
       )}
