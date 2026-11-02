@@ -11,7 +11,11 @@ import {
   updateHubLocationAction,
   createHubLocationAction,
   toggleVehicleAvailabilityAction,
+  updateVehicleDetailsAction,
+  createVehicleAction,
 } from "@/actions/admin";
+import { updatePlatformSettingsAction } from "@/actions/platformSettings";
+import { DEFAULT_PLATFORM_SETTINGS, PlatformPricingSettings } from "@/data/platformSettings";
 import { DELHI_NCR_LOCATIONS } from "@/data/locations";
 import { formatINR } from "@/lib/formatters";
 import { Car as CarType } from "@/types/car";
@@ -42,6 +46,10 @@ import {
   Plus,
   ToggleLeft,
   ToggleRight,
+  Sliders,
+  Percent,
+  Zap,
+  Sparkles,
 } from "lucide-react";
 
 export default function MasterAdminPortalPage() {
@@ -49,8 +57,59 @@ export default function MasterAdminPortalPage() {
   const { vehicles } = useVehicles();
   const { hubs } = useHubLocations();
 
-  const [activeTab, setActiveTab] = useState<"fleet" | "hubs" | "audit" | "agents">("fleet");
+  const [activeTab, setActiveTab] = useState<
+    "fleet" | "hubs" | "pricing" | "audit" | "agents"
+  >("fleet");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Platform Pricing & Multipliers State
+  const [platformSettings, setPlatformSettings] =
+    useState<PlatformPricingSettings>(DEFAULT_PLATFORM_SETTINGS);
+  const [isUpdatingSettings, setIsUpdatingSettings] = useState(false);
+  const [settingsFeedback, setSettingsFeedback] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
+
+  const handleSavePlatformSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsUpdatingSettings(true);
+    setSettingsFeedback(null);
+
+    try {
+      const res = await updatePlatformSettingsAction({
+        gstPercent: platformSettings.gstPercent,
+        platformFeePercent: platformSettings.platformFeePercent,
+        fastagBufferINR: platformSettings.fastagBufferINR,
+        securityDepositINR: platformSettings.securityDepositINR,
+        pristineMultiplier: platformSettings.pristineMultiplier,
+        mintMultiplier: platformSettings.mintMultiplier,
+        touringMultiplier: platformSettings.touringMultiplier,
+        surgeMultiplierCeiling: platformSettings.surgeMultiplierCeiling,
+        surgeActive: platformSettings.surgeActive,
+        surgeReason: platformSettings.surgeReason,
+      });
+
+      if (res.success) {
+        setSettingsFeedback({
+          type: "success",
+          message: res.message || "Global pricing multipliers updated.",
+        });
+      } else {
+        setSettingsFeedback({
+          type: "error",
+          message: res.error || "Failed to update pricing settings.",
+        });
+      }
+    } catch (err) {
+      setSettingsFeedback({
+        type: "error",
+        message: err instanceof Error ? err.message : "Error saving pricing settings",
+      });
+    } finally {
+      setIsUpdatingSettings(false);
+    }
+  };
 
   // Manage Local Hubs State for immediate responsiveness
   const [adminHubs, setAdminHubs] = useState<LocationHub[]>(DELHI_NCR_LOCATIONS);
@@ -63,6 +122,7 @@ export default function MasterAdminPortalPage() {
   // Operational Hub Editing State
   const [editingHub, setEditingHub] = useState<LocationHub | null>(null);
   const [hubName, setHubName] = useState("");
+  const [hubSlug, setHubSlug] = useState("");
   const [hubArea, setHubArea] = useState("");
   const [hubCity, setHubCity] = useState("");
   const [hubAddress, setHubAddress] = useState("");
@@ -79,6 +139,7 @@ export default function MasterAdminPortalPage() {
   const handleOpenEditHubModal = (hub: LocationHub) => {
     setEditingHub(hub);
     setHubName(hub.name);
+    setHubSlug(hub.slug);
     setHubArea(hub.area);
     setHubCity(hub.city);
     setHubAddress(hub.address);
@@ -98,6 +159,7 @@ export default function MasterAdminPortalPage() {
     try {
       const res = await updateHubLocationAction({
         hubId: editingHub.id || editingHub.slug,
+        slug: hubSlug.trim() || editingHub.slug,
         name: hubName,
         area: hubArea,
         city: hubCity,
@@ -119,6 +181,7 @@ export default function MasterAdminPortalPage() {
               ? {
                   ...h,
                   name: hubName,
+                  slug: hubSlug.trim() || h.slug,
                   area: hubArea,
                   city: hubCity,
                   address: hubAddress,
@@ -355,6 +418,242 @@ export default function MasterAdminPortalPage() {
     }
   };
 
+  // Manage Local Fleet Vehicles State
+  const [adminVehicles, setAdminVehicles] = useState<CarType[]>(vehicles);
+  useEffect(() => {
+    if (vehicles && vehicles.length > 0) {
+      setAdminVehicles(vehicles);
+    }
+  }, [vehicles]);
+
+  // Edit Vehicle Details & Custom Paths State
+  const [editingVehicle, setEditingVehicle] = useState<CarType | null>(null);
+  const [vehName, setVehName] = useState("");
+  const [vehSlug, setVehSlug] = useState("");
+  const [vehBrand, setVehBrand] = useState("");
+  const [vehCategory, setVehCategory] = useState<CarType["category"]>("touring-suv");
+  const [vehCategoryLabel, setVehCategoryLabel] = useState("");
+  const [vehDailyPrice, setVehDailyPrice] = useState(4999);
+  const [vehMonthlyPrice, setVehMonthlyPrice] = useState(89999);
+  const [vehHubSlug, setVehHubSlug] = useState("ghaziabad-hub");
+  const [vehAgent, setVehAgent] = useState("Rajesh Kumar");
+  const [vehFuel, setVehFuel] = useState<CarType["specs"]["fuelType"]>("Petrol");
+  const [vehTransmission, setVehTransmission] = useState<CarType["specs"]["transmission"]>("Automatic");
+  const [vehSeats, setVehSeats] = useState(5);
+  const [vehBags, setVehBags] = useState(3);
+  const [vehRange, setVehRange] = useState("14 km/l");
+  const [vehHorsePower, setVehHorsePower] = useState("170 bhp");
+  const [vehIsAvailable, setVehIsAvailable] = useState(true);
+  const [vehUnavailableReason, setVehUnavailableReason] = useState("");
+  const [vehReason, setVehReason] = useState("Administrative specification and path update");
+  const [isUpdatingVehicle, setIsUpdatingVehicle] = useState(false);
+  const [vehicleFeedback, setVehicleFeedback] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
+
+  const handleOpenEditVehicleModal = (car: CarType) => {
+    setEditingVehicle(car);
+    setVehName(car.name);
+    setVehSlug(car.slug);
+    setVehBrand(car.brand);
+    setVehCategory(car.category);
+    setVehCategoryLabel(car.categoryLabel || car.category);
+    setVehDailyPrice(car.dailyPriceINR);
+    setVehMonthlyPrice(car.monthlyPriceINR || car.dailyPriceINR * 25);
+    setVehHubSlug(car.hubSlug || "ghaziabad-hub");
+    setVehAgent(car.agentAssigned || "Rajesh Kumar");
+    setVehFuel(car.specs.fuelType);
+    setVehTransmission(car.specs.transmission);
+    setVehSeats(car.specs.seats);
+    setVehBags(car.specs.luggageBags);
+    setVehRange(car.specs.rangeOrMileage);
+    setVehHorsePower(car.specs.horsePower);
+    setVehIsAvailable(car.isAvailableDemo);
+    setVehUnavailableReason(car.unavailableReason || "");
+    setVehReason("Administrative specification and path update");
+    setVehicleFeedback(null);
+  };
+
+  const handleSaveVehicle = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingVehicle) return;
+    setIsUpdatingVehicle(true);
+    setVehicleFeedback(null);
+
+    const targetHub = adminHubs.find((h) => h.slug === vehHubSlug);
+
+    try {
+      const res = await updateVehicleDetailsAction({
+        vehicleId: editingVehicle.id,
+        name: vehName.trim(),
+        slug: vehSlug.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-"),
+        brand: vehBrand.trim(),
+        category: vehCategory,
+        categoryLabel: vehCategoryLabel.trim(),
+        dailyPriceINR: Number(vehDailyPrice),
+        monthlyPriceINR: Number(vehMonthlyPrice),
+        hubLocation: targetHub ? targetHub.name : editingVehicle.hubLocation,
+        hubSlug: vehHubSlug,
+        agentAssigned: vehAgent.trim(),
+        fuelType: vehFuel,
+        transmission: vehTransmission,
+        seats: Number(vehSeats),
+        luggageBags: Number(vehBags),
+        rangeOrMileage: vehRange.trim(),
+        horsePower: vehHorsePower.trim(),
+        topSpeed: editingVehicle.specs.topSpeed || "200 km/h",
+        isAvailableDemo: vehIsAvailable,
+        unavailableReason: vehUnavailableReason.trim(),
+        reason: vehReason,
+      });
+
+      if (res.success) {
+        setVehicleFeedback({
+          type: "success",
+          message: res.message || "Vehicle updated successfully.",
+        });
+        setAdminVehicles((prev) =>
+          prev.map((c) =>
+            c.id === editingVehicle.id
+              ? {
+                  ...c,
+                  name: vehName.trim(),
+                  slug: vehSlug.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-"),
+                  brand: vehBrand.trim(),
+                  category: vehCategory,
+                  categoryLabel: vehCategoryLabel.trim(),
+                  dailyPriceINR: Number(vehDailyPrice),
+                  monthlyPriceINR: Number(vehMonthlyPrice),
+                  hubLocation: targetHub ? targetHub.name : c.hubLocation,
+                  hubSlug: vehHubSlug,
+                  agentAssigned: vehAgent.trim(),
+                  specs: {
+                    ...c.specs,
+                    fuelType: vehFuel,
+                    transmission: vehTransmission,
+                    seats: Number(vehSeats),
+                    luggageBags: Number(vehBags),
+                    rangeOrMileage: vehRange.trim(),
+                    horsePower: vehHorsePower.trim(),
+                  },
+                  isAvailableDemo: vehIsAvailable,
+                  unavailableReason: vehUnavailableReason.trim(),
+                }
+              : c
+          )
+        );
+        setTimeout(() => {
+          setEditingVehicle(null);
+          setVehicleFeedback(null);
+        }, 1500);
+      } else {
+        setVehicleFeedback({
+          type: "error",
+          message: res.error || "Failed to update vehicle.",
+        });
+      }
+    } catch (err) {
+      setVehicleFeedback({
+        type: "error",
+        message: err instanceof Error ? err.message : "Unexpected error saving vehicle.",
+      });
+    } finally {
+      setIsUpdatingVehicle(false);
+    }
+  };
+
+  // Add New Vehicle State
+  const [isCreateVehicleModalOpen, setIsCreateVehicleModalOpen] = useState(false);
+  const [newVehName, setNewVehName] = useState("");
+  const [newVehSlug, setNewVehSlug] = useState("");
+  const [newVehBrand, setNewVehBrand] = useState("");
+  const [newVehCategory, setNewVehCategory] = useState<CarType["category"]>("touring-suv");
+  const [newVehCategoryLabel, setNewVehCategoryLabel] = useState("Touring SUV");
+  const [newVehDailyPrice, setNewVehDailyPrice] = useState(4999);
+  const [newVehMonthlyPrice, setNewVehMonthlyPrice] = useState(89999);
+  const [newVehHubSlug, setNewVehHubSlug] = useState("ghaziabad-hub");
+  const [newVehAgent, setNewVehAgent] = useState("Rajesh Kumar");
+  const [newVehFuel, setNewVehFuel] = useState<CarType["specs"]["fuelType"]>("Petrol");
+  const [newVehTransmission, setNewVehTransmission] = useState<CarType["specs"]["transmission"]>("Automatic");
+  const [newVehSeats, setNewVehSeats] = useState(5);
+  const [newVehBags, setNewVehBags] = useState(3);
+  const [newVehRange, setNewVehRange] = useState("15 km/l");
+  const [newVehHorsePower, setNewVehHorsePower] = useState("150 bhp");
+  const [isCreatingVehicle, setIsCreatingVehicle] = useState(false);
+  const [createVehicleFeedback, setCreateVehicleFeedback] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
+
+  const handleCreateVehicle = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsCreatingVehicle(true);
+    setCreateVehicleFeedback(null);
+
+    const generatedSlug =
+      newVehSlug.trim() ||
+      newVehName
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "");
+
+    const targetHub = adminHubs.find((h) => h.slug === newVehHubSlug);
+
+    try {
+      const res = await createVehicleAction({
+        name: newVehName.trim(),
+        slug: generatedSlug,
+        brand: newVehBrand.trim(),
+        category: newVehCategory,
+        categoryLabel: newVehCategoryLabel.trim(),
+        dailyPriceINR: Number(newVehDailyPrice),
+        monthlyPriceINR: Number(newVehMonthlyPrice),
+        hubLocation: targetHub ? targetHub.name : "Ghaziabad Hub",
+        hubSlug: newVehHubSlug,
+        agentAssigned: newVehAgent.trim(),
+        fuelType: newVehFuel,
+        transmission: newVehTransmission,
+        seats: Number(newVehSeats),
+        luggageBags: Number(newVehBags),
+        rangeOrMileage: newVehRange.trim(),
+        horsePower: newVehHorsePower.trim(),
+        topSpeed: "200 km/h",
+        image: "/images/cars/homie_thar_roxx.jpg",
+        year: 2024,
+        description: `${newVehName} premium self-drive luxury rental car in Delhi NCR.`,
+        isAvailableDemo: true,
+      });
+
+      if (res.success && res.vehicle) {
+        setCreateVehicleFeedback({
+          type: "success",
+          message: res.message || "New vehicle added to fleet.",
+        });
+        setAdminVehicles((prev) => [res.vehicle!, ...prev]);
+        setTimeout(() => {
+          setIsCreateVehicleModalOpen(false);
+          setCreateVehicleFeedback(null);
+          setNewVehName("");
+          setNewVehSlug("");
+          setNewVehBrand("");
+        }, 1500);
+      } else {
+        setCreateVehicleFeedback({
+          type: "error",
+          message: res.error || "Failed to create vehicle.",
+        });
+      }
+    } catch (err) {
+      setCreateVehicleFeedback({
+        type: "error",
+        message: err instanceof Error ? err.message : "Error creating vehicle.",
+      });
+    } finally {
+      setIsCreatingVehicle(false);
+    }
+  };
+
   // System-wide mock / live audit trail
   const auditLogs = [
     {
@@ -544,7 +843,7 @@ export default function MasterAdminPortalPage() {
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <div className="relative">
                   <Search className="w-4 h-4 text-[#829280] absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
@@ -555,6 +854,17 @@ export default function MasterAdminPortalPage() {
                     className="pl-9 pr-3 py-1.5 bg-[#F8FAF7] border border-[#DFE6DC] rounded-xl text-xs text-[#172016] focus:outline-none focus:ring-2 focus:ring-[#50644E]/30"
                   />
                 </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCreateVehicleModalOpen(true);
+                    setCreateVehicleFeedback(null);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#50644E] hover:bg-[#3D4D3B] text-white text-xs font-extrabold shadow-xs transition-all cursor-pointer whitespace-nowrap"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add New Vehicle</span>
+                </button>
               </div>
             </div>
 
@@ -562,7 +872,7 @@ export default function MasterAdminPortalPage() {
               <table className="w-full text-left text-xs">
                 <thead className="bg-[#F8FAF7] border-b border-[#E8EFE5] text-[#5C6B5A] uppercase text-[10px] tracking-wider font-extrabold">
                   <tr>
-                    <th className="py-3.5 px-4 sm:px-6">Vehicle</th>
+                    <th className="py-3.5 px-4 sm:px-6">Vehicle &amp; Path</th>
                     <th className="py-3.5 px-4">Category</th>
                     <th className="py-3.5 px-4">Assigned Hub</th>
                     <th className="py-3.5 px-4">Base Rate (INR)</th>
@@ -571,7 +881,7 @@ export default function MasterAdminPortalPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F0F4ED]">
-                  {vehicles
+                  {(adminVehicles.length > 0 ? adminVehicles : vehicles)
                     .filter((v) =>
                       searchQuery
                         ? v.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -592,8 +902,11 @@ export default function MasterAdminPortalPage() {
                             </div>
                             <div>
                               <strong className="font-bold text-[#172016] block">{car.name}</strong>
-                              <span className="text-[11px] text-[#829280]">
-                                {car.specs.fuelType} • {car.specs.seats} seats
+                              <span className="text-[11px] text-[#829280] block">
+                                {car.specs.fuelType} • {car.specs.seats} seats • {car.brand}
+                              </span>
+                              <span className="text-[10px] text-[#50644E] font-mono block">
+                                /cars/{car.slug}
                               </span>
                             </div>
                           </div>
@@ -628,14 +941,22 @@ export default function MasterAdminPortalPage() {
                           </button>
                         </td>
                         <td className="py-4 px-4 text-right">
-                          <div className="flex items-center justify-end gap-2">
+                          <div className="flex items-center justify-end gap-2 flex-wrap">
+                            <button
+                              onClick={() => handleOpenEditVehicleModal(car)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-[#50644E] hover:bg-[#3D4D3B] transition-colors cursor-pointer shadow-2xs"
+                              title="Edit Vehicle Details, Specs & Custom Path"
+                            >
+                              <Sliders className="w-3.5 h-3.5" />
+                              <span>Edit Details</span>
+                            </button>
                             <button
                               onClick={() => handleOpenPricingModal(car)}
                               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-[#50644E] bg-[#EAF0E7] hover:bg-[#dce7d8] transition-colors cursor-pointer"
                               title="Edit base pricing & deposit"
                             >
                               <Edit3 className="w-3.5 h-3.5" />
-                              Edit Rate
+                              Rate
                             </button>
                             <button
                               onClick={() => handleOpenReassignModal(car)}
@@ -781,6 +1102,359 @@ export default function MasterAdminPortalPage() {
                 );
               })}
             </div>
+          </div>
+        )}
+
+        {/* TAB 3: PRICING ENGINE & GLOBAL MULTIPLIERS */}
+        {activeTab === "pricing" && (
+          <div className="bg-white rounded-3xl border border-[#E8EFE5] shadow-homie overflow-hidden p-6 sm:p-7 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#F0F4ED]">
+              <div>
+                <h2 className="text-lg font-bold text-[#172016]">
+                  Global Pricing Multipliers &amp; Tax Engine
+                </h2>
+                <p className="text-xs text-[#5C6B5A] mt-0.5">
+                  Calibrate statutory GST tax rates, platform fees, FASTag preloads, and condition tier multipliers without code redeployments.
+                </p>
+              </div>
+              <span className="text-xs font-bold text-[#50644E] bg-[#EAF0E7] px-3 py-1 rounded-full border border-[#D5E2D1]">
+                Live Dynamic Engine
+              </span>
+            </div>
+
+            <form onSubmit={handleSavePlatformSettings} className="space-y-6">
+              {/* Row 1: GST, Platform Fee, FASTag Buffer */}
+              <div>
+                <h3 className="text-xs font-bold text-[#5C6B5A] uppercase tracking-wider mb-3">
+                  Statutory Taxes &amp; Platform Escrow
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="bg-[#F8FAF7] p-4 rounded-2xl border border-[#E8EFE5] space-y-1.5">
+                    <label className="text-xs font-bold text-[#172016] flex items-center justify-between">
+                      <span>Indian GST Rate (%)</span>
+                      <span className="text-[10px] text-[#5C6B5A]">SAC 996601</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min={0}
+                        max={28}
+                        value={platformSettings.gstPercent}
+                        onChange={(e) =>
+                          setPlatformSettings({
+                            ...platformSettings,
+                            gstPercent: Number(e.target.value),
+                          })
+                        }
+                        className="w-full px-3 py-2 bg-white rounded-xl border border-[#CFD8CD] font-bold text-sm text-[#172016] focus:outline-hidden"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#829280]">
+                        %
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-[#829280]">
+                      CGST {platformSettings.gstPercent / 2}% + SGST {platformSettings.gstPercent / 2}%
+                    </p>
+                  </div>
+
+                  <div className="bg-[#F8FAF7] p-4 rounded-2xl border border-[#E8EFE5] space-y-1.5">
+                    <label className="text-xs font-bold text-[#172016] flex items-center justify-between">
+                      <span>Platform Facilitation Fee (%)</span>
+                      <span className="text-[10px] text-[#5C6B5A]">Fleet Operations</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min={0}
+                        max={20}
+                        value={platformSettings.platformFeePercent}
+                        onChange={(e) =>
+                          setPlatformSettings({
+                            ...platformSettings,
+                            platformFeePercent: Number(e.target.value),
+                          })
+                        }
+                        className="w-full px-3 py-2 bg-white rounded-xl border border-[#CFD8CD] font-bold text-sm text-[#172016] focus:outline-hidden"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#829280]">
+                        %
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-[#829280]">
+                      Applied to base rental charge
+                    </p>
+                  </div>
+
+                  <div className="bg-[#F8FAF7] p-4 rounded-2xl border border-[#E8EFE5] space-y-1.5">
+                    <label className="text-xs font-bold text-[#172016] flex items-center justify-between">
+                      <span>FASTag Buffer Preload (₹)</span>
+                      <span className="text-[10px] text-[#5C6B5A]">NETC Toll Escrow</span>
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#829280]">
+                        ₹
+                      </span>
+                      <input
+                        type="number"
+                        min={0}
+                        max={10000}
+                        step={100}
+                        value={platformSettings.fastagBufferINR}
+                        onChange={(e) =>
+                          setPlatformSettings({
+                            ...platformSettings,
+                            fastagBufferINR: Number(e.target.value),
+                          })
+                        }
+                        className="w-full pl-7 pr-3 py-2 bg-white rounded-xl border border-[#CFD8CD] font-bold text-sm text-[#172016] focus:outline-hidden font-mono"
+                      />
+                    </div>
+                    <p className="text-[10px] text-[#829280]">
+                      Auto-settled at trip close
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 2: Condition Tier Multipliers */}
+              <div>
+                <h3 className="text-xs font-bold text-[#5C6B5A] uppercase tracking-wider mb-3">
+                  Vehicle Condition Tier Multipliers
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="bg-[#F8FAF7] p-4 rounded-2xl border border-[#E8EFE5] space-y-1.5">
+                    <label className="text-xs font-bold text-[#172016] flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                        Showroom Pristine
+                      </span>
+                      <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full">
+                        Premium
+                      </span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min={1.0}
+                        max={1.5}
+                        step={0.01}
+                        value={platformSettings.pristineMultiplier}
+                        onChange={(e) =>
+                          setPlatformSettings({
+                            ...platformSettings,
+                            pristineMultiplier: Number(e.target.value),
+                          })
+                        }
+                        className="w-full px-3 py-2 bg-white rounded-xl border border-[#CFD8CD] font-bold text-sm text-[#172016] focus:outline-hidden font-mono"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#829280]">
+                        x
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-[#829280]">
+                      +{(Math.round((platformSettings.pristineMultiplier - 1) * 100))}% rate premium
+                    </p>
+                  </div>
+
+                  <div className="bg-[#F8FAF7] p-4 rounded-2xl border border-[#E8EFE5] space-y-1.5">
+                    <label className="text-xs font-bold text-[#172016] flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+                        Executive Mint
+                      </span>
+                      <span className="text-[10px] text-blue-700 font-bold bg-blue-50 px-2 py-0.5 rounded-full">
+                        Baseline
+                      </span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min={0.9}
+                        max={1.2}
+                        step={0.01}
+                        value={platformSettings.mintMultiplier}
+                        onChange={(e) =>
+                          setPlatformSettings({
+                            ...platformSettings,
+                            mintMultiplier: Number(e.target.value),
+                          })
+                        }
+                        className="w-full px-3 py-2 bg-white rounded-xl border border-[#CFD8CD] font-bold text-sm text-[#172016] focus:outline-hidden font-mono"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#829280]">
+                        x
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-[#829280]">
+                      Standard baseline catalog rate
+                    </p>
+                  </div>
+
+                  <div className="bg-[#F8FAF7] p-4 rounded-2xl border border-[#E8EFE5] space-y-1.5">
+                    <label className="text-xs font-bold text-[#172016] flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <Car className="w-3.5 h-3.5 text-amber-600" />
+                        Touring Value
+                      </span>
+                      <span className="text-[10px] text-amber-700 font-bold bg-amber-50 px-2 py-0.5 rounded-full">
+                        Value Tier
+                      </span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min={0.7}
+                        max={1.0}
+                        step={0.01}
+                        value={platformSettings.touringMultiplier}
+                        onChange={(e) =>
+                          setPlatformSettings({
+                            ...platformSettings,
+                            touringMultiplier: Number(e.target.value),
+                          })
+                        }
+                        className="w-full px-3 py-2 bg-white rounded-xl border border-[#CFD8CD] font-bold text-sm text-[#172016] focus:outline-hidden font-mono"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#829280]">
+                        x
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-[#829280]">
+                      -{(Math.round((1 - platformSettings.touringMultiplier) * 100))}% budget discount
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 3: Surge Pricing Engine */}
+              <div>
+                <h3 className="text-xs font-bold text-[#5C6B5A] uppercase tracking-wider mb-3">
+                  Dynamic Demand Surge Protocol
+                </h3>
+                <div className="bg-[#F8FAF7] p-4 rounded-2xl border border-[#E8EFE5] space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Zap className="w-4 h-4 text-amber-500" />
+                        <strong className="text-xs font-bold text-[#172016]">
+                          High-Demand Surge Pricing Toggle
+                        </strong>
+                      </div>
+                      <p className="text-[11px] text-[#5C6B5A] mt-0.5">
+                        When enabled, applies dynamic surge multiplier to all bookings across active hubs during festival / holiday peaks.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPlatformSettings({
+                          ...platformSettings,
+                          surgeActive: !platformSettings.surgeActive,
+                        })
+                      }
+                      className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        platformSettings.surgeActive
+                          ? "bg-amber-500 text-white shadow-xs"
+                          : "bg-white text-[#5C6B5A] border border-[#CFD8CD] hover:bg-[#F3F6F1]"
+                      }`}
+                    >
+                      {platformSettings.surgeActive ? (
+                        <>
+                          <ToggleRight className="w-4 h-4" />
+                          <span>Surge ACTIVE</span>
+                        </>
+                      ) : (
+                        <>
+                          <ToggleLeft className="w-4 h-4" />
+                          <span>Surge Inactive</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {platformSettings.surgeActive && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-[#E8EFE5]">
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-[#172016]">
+                          Surge Ceiling Multiplier (Max Cap)
+                        </label>
+                        <input
+                          type="number"
+                          min={1.05}
+                          max={1.8}
+                          step={0.05}
+                          value={platformSettings.surgeMultiplierCeiling}
+                          onChange={(e) =>
+                            setPlatformSettings({
+                              ...platformSettings,
+                              surgeMultiplierCeiling: Number(e.target.value),
+                            })
+                          }
+                          className="w-full px-3 py-2 bg-white rounded-xl border border-[#CFD8CD] font-bold text-xs text-[#172016] focus:outline-hidden font-mono"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-[#172016]">
+                          Surge Reason / Notification Notice
+                        </label>
+                        <input
+                          type="text"
+                          value={platformSettings.surgeReason}
+                          onChange={(e) =>
+                            setPlatformSettings({
+                              ...platformSettings,
+                              surgeReason: e.target.value,
+                            })
+                          }
+                          placeholder="e.g. Diwali Weekend / New Year Surge"
+                          className="w-full px-3 py-2 bg-white rounded-xl border border-[#CFD8CD] text-xs font-semibold text-[#172016] focus:outline-hidden"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Feedback Message */}
+              {settingsFeedback && (
+                <div
+                  className={`p-3 rounded-xl text-xs font-semibold flex items-center gap-2 ${
+                    settingsFeedback.type === "success"
+                      ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                      : "bg-red-50 text-red-800 border border-red-200"
+                  }`}
+                >
+                  {settingsFeedback.type === "success" ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  ) : (
+                    <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                  )}
+                  <span>{settingsFeedback.message}</span>
+                </div>
+              )}
+
+              {/* Save Button */}
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#F0F4ED]">
+                <button
+                  type="submit"
+                  disabled={isUpdatingSettings}
+                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#50644E] hover:bg-[#3D4D3B] text-white text-xs font-extrabold shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  {isUpdatingSettings ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      Saving Settings...
+                    </>
+                  ) : (
+                    <>
+                      <Sliders className="w-3.5 h-3.5" />
+                      Save Pricing Parameters
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         )}
 
@@ -1213,6 +1887,26 @@ export default function MasterAdminPortalPage() {
                     />
                   </div>
                   <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">Station URL Path / Slug</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#829280]">
+                        /hubs/
+                      </span>
+                      <input
+                        type="text"
+                        value={hubSlug}
+                        onChange={(e) =>
+                          setHubSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, "-"))
+                        }
+                        className="w-full pl-16 pr-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] outline-hidden font-mono"
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
                     <label className="text-xs font-bold text-[#172016]">City</label>
                     <input
                       type="text"
@@ -1222,17 +1916,16 @@ export default function MasterAdminPortalPage() {
                       required
                     />
                   </div>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-[#172016]">Area / Landmark</label>
-                  <input
-                    type="text"
-                    value={hubArea}
-                    onChange={(e) => setHubArea(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] outline-hidden"
-                    required
-                  />
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">Area / Landmark</label>
+                    <input
+                      type="text"
+                      value={hubArea}
+                      onChange={(e) => setHubArea(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] outline-hidden"
+                      required
+                    />
+                  </div>
                 </div>
 
                 <div className="space-y-1">
@@ -1519,6 +2212,641 @@ export default function MasterAdminPortalPage() {
                       <>
                         <Plus className="w-3.5 h-3.5" />
                         Create Hub Station
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Master Fleet Vehicle Editor Modal */}
+        {editingVehicle && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+            <div className="bg-white rounded-3xl max-w-2xl w-full border border-[#E8EFE5] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+              <div className="p-5 sm:p-6 bg-[#172016] text-white flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-emerald-400">
+                    <Sliders className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-base">Edit Vehicle Specifications &amp; Route</h3>
+                    <p className="text-xs text-white/60">
+                      Configure vehicle parameters, public route paths, operational hub, and availability
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingVehicle(null);
+                    setVehicleFeedback(null);
+                  }}
+                  className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/80 hover:text-white transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveVehicle} className="p-5 sm:p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">Vehicle Model Name</label>
+                    <input
+                      type="text"
+                      value={vehName}
+                      onChange={(e) => setVehName(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] outline-hidden"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">Brand / Manufacturer</label>
+                    <input
+                      type="text"
+                      value={vehBrand}
+                      onChange={(e) => setVehBrand(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] outline-hidden"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">Public Route Path / Slug</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#829280]">
+                        /cars/
+                      </span>
+                      <input
+                        type="text"
+                        value={vehSlug}
+                        onChange={(e) =>
+                          setVehSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, "-"))
+                        }
+                        className="w-full pl-16 pr-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] outline-hidden font-mono"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">Category</label>
+                    <select
+                      value={vehCategory}
+                      onChange={(e) => {
+                        const val = e.target.value as CarType["category"];
+                        setVehCategory(val);
+                        setVehCategoryLabel(
+                          val === "supercar"
+                            ? "Supercar"
+                            : val === "luxury-sedan"
+                            ? "Luxury Sedan"
+                            : val === "performance-suv"
+                            ? "Performance SUV"
+                            : val === "city-ev"
+                            ? "City EV"
+                            : val === "adventure-4x4"
+                            ? "Adventure 4x4"
+                            : val === "family-tourer"
+                            ? "Family Tourer"
+                            : "Touring SUV"
+                        );
+                      }}
+                      className="w-full px-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] bg-white outline-hidden"
+                    >
+                      <option value="touring-suv">Touring SUV</option>
+                      <option value="adventure-4x4">Adventure 4x4</option>
+                      <option value="luxury-sedan">Luxury Sedan</option>
+                      <option value="performance-suv">Performance SUV</option>
+                      <option value="city-ev">City EV</option>
+                      <option value="supercar">Supercar</option>
+                      <option value="family-tourer">Family Tourer</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">Base Daily Rate (₹)</label>
+                    <input
+                      type="number"
+                      min={999}
+                      max={99999}
+                      value={vehDailyPrice}
+                      onChange={(e) => setVehDailyPrice(Number(e.target.value))}
+                      className="w-full px-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] outline-hidden font-mono"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">Monthly Subscription Rate (₹)</label>
+                    <input
+                      type="number"
+                      min={9999}
+                      max={999999}
+                      value={vehMonthlyPrice}
+                      onChange={(e) => setVehMonthlyPrice(Number(e.target.value))}
+                      className="w-full px-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] outline-hidden font-mono"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">Assigned Operating Hub</label>
+                    <select
+                      value={vehHubSlug}
+                      onChange={(e) => setVehHubSlug(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] bg-white outline-hidden"
+                    >
+                      {adminHubs.map((hub) => (
+                        <option key={hub.id || hub.slug} value={hub.slug}>
+                          {hub.name} ({hub.city})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">Assigned Operational Agent</label>
+                    <input
+                      type="text"
+                      value={vehAgent}
+                      onChange={(e) => setVehAgent(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] outline-hidden"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">Fuel Type</label>
+                    <select
+                      value={vehFuel}
+                      onChange={(e) => setVehFuel(e.target.value as CarType["specs"]["fuelType"])}
+                      className="w-full px-2.5 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] bg-white outline-hidden"
+                    >
+                      <option value="Petrol">Petrol</option>
+                      <option value="Diesel">Diesel</option>
+                      <option value="Electric">Electric</option>
+                      <option value="Hybrid">Hybrid</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">Transmission</label>
+                    <select
+                      value={vehTransmission}
+                      onChange={(e) =>
+                        setVehTransmission(e.target.value as CarType["specs"]["transmission"])
+                      }
+                      className="w-full px-2.5 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] bg-white outline-hidden"
+                    >
+                      <option value="Automatic">Automatic</option>
+                      <option value="Manual">Manual</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">Seats</label>
+                    <input
+                      type="number"
+                      min={2}
+                      max={12}
+                      value={vehSeats}
+                      onChange={(e) => setVehSeats(Number(e.target.value))}
+                      className="w-full px-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] outline-hidden font-mono"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">Luggage Bags</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={8}
+                      value={vehBags}
+                      onChange={(e) => setVehBags(Number(e.target.value))}
+                      className="w-full px-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] outline-hidden font-mono"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">Range / Fuel Economy</label>
+                    <input
+                      type="text"
+                      value={vehRange}
+                      onChange={(e) => setVehRange(e.target.value)}
+                      placeholder="e.g. 15.2 km/l or 465 km"
+                      className="w-full px-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] outline-hidden"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">Engine Power (BHP)</label>
+                    <input
+                      type="text"
+                      value={vehHorsePower}
+                      onChange={(e) => setVehHorsePower(e.target.value)}
+                      placeholder="e.g. 175 bhp"
+                      className="w-full px-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] outline-hidden"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">Availability Status</label>
+                    <select
+                      value={vehIsAvailable ? "available" : "maintenance"}
+                      onChange={(e) => setVehIsAvailable(e.target.value === "available")}
+                      className="w-full px-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] bg-white outline-hidden"
+                    >
+                      <option value="available">Available for Bookings</option>
+                      <option value="maintenance">Not Available / In Maintenance</option>
+                    </select>
+                  </div>
+                  {!vehIsAvailable && (
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-[#172016]">Unavailable Notice</label>
+                      <input
+                        type="text"
+                        value={vehUnavailableReason}
+                        onChange={(e) => setVehUnavailableReason(e.target.value)}
+                        placeholder="e.g. Scheduled 10,000 km Service"
+                        className="w-full px-3 py-2 rounded-xl border border-amber-300 focus:border-amber-500 text-xs font-semibold text-[#172016] outline-hidden bg-amber-50/50"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-[#172016]">Modification Audit Reason</label>
+                  <input
+                    type="text"
+                    value={vehReason}
+                    onChange={(e) => setVehReason(e.target.value)}
+                    placeholder="Mandatory reason for audit trail compliance"
+                    className="w-full px-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] outline-hidden"
+                    required
+                  />
+                </div>
+
+                {/* Feedback */}
+                {vehicleFeedback && (
+                  <div
+                    className={`p-3 rounded-xl text-xs font-semibold flex items-center gap-2 ${
+                      vehicleFeedback.type === "success"
+                        ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                        : "bg-red-50 text-red-800 border border-red-200"
+                    }`}
+                  >
+                    {vehicleFeedback.type === "success" ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                    )}
+                    <span>{vehicleFeedback.message}</span>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#F0F4ED]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingVehicle(null);
+                      setVehicleFeedback(null);
+                    }}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-[#5C6B5A] hover:bg-[#F3F6F1] transition-colors cursor-pointer"
+                    disabled={isUpdatingVehicle}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isUpdatingVehicle}
+                    className="inline-flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-extrabold bg-[#50644E] hover:bg-[#3D4D3B] text-white shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+                  >
+                    {isUpdatingVehicle ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        Saving Changes...
+                      </>
+                    ) : (
+                      <>
+                        <Sliders className="w-3.5 h-3.5" />
+                        Save Vehicle Specifications
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Add New Fleet Vehicle Modal */}
+        {isCreateVehicleModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+            <div className="bg-white rounded-3xl max-w-2xl w-full border border-[#E8EFE5] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+              <div className="p-5 sm:p-6 bg-[#172016] text-white flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-emerald-400">
+                    <Plus className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-base">Add New Fleet Vehicle</h3>
+                    <p className="text-xs text-white/60">
+                      Provision a new vehicle into the Homie Drives Delhi NCR unified fleet
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCreateVehicleModalOpen(false);
+                    setCreateVehicleFeedback(null);
+                  }}
+                  className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/80 hover:text-white transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateVehicle} className="p-5 sm:p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">Model Name</label>
+                    <input
+                      type="text"
+                      value={newVehName}
+                      onChange={(e) => {
+                        setNewVehName(e.target.value);
+                        if (!newVehSlug) {
+                          setNewVehSlug(
+                            e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, "-")
+                          );
+                        }
+                      }}
+                      placeholder="e.g. BMW X5 xDrive40i"
+                      className="w-full px-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] outline-hidden"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">Brand</label>
+                    <input
+                      type="text"
+                      value={newVehBrand}
+                      onChange={(e) => setNewVehBrand(e.target.value)}
+                      placeholder="e.g. BMW"
+                      className="w-full px-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] outline-hidden"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">Public Route Slug</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#829280]">
+                        /cars/
+                      </span>
+                      <input
+                        type="text"
+                        value={newVehSlug}
+                        onChange={(e) =>
+                          setNewVehSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, "-"))
+                        }
+                        placeholder="bmw-x5-xdrive40i"
+                        className="w-full pl-16 pr-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] outline-hidden font-mono"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">Category</label>
+                    <select
+                      value={newVehCategory}
+                      onChange={(e) => {
+                        const val = e.target.value as CarType["category"];
+                        setNewVehCategory(val);
+                        setNewVehCategoryLabel(
+                          val === "supercar"
+                            ? "Supercar"
+                            : val === "luxury-sedan"
+                            ? "Luxury Sedan"
+                            : val === "performance-suv"
+                            ? "Performance SUV"
+                            : val === "city-ev"
+                            ? "City EV"
+                            : val === "adventure-4x4"
+                            ? "Adventure 4x4"
+                            : val === "family-tourer"
+                            ? "Family Tourer"
+                            : "Touring SUV"
+                        );
+                      }}
+                      className="w-full px-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] bg-white outline-hidden"
+                    >
+                      <option value="touring-suv">Touring SUV</option>
+                      <option value="adventure-4x4">Adventure 4x4</option>
+                      <option value="luxury-sedan">Luxury Sedan</option>
+                      <option value="performance-suv">Performance SUV</option>
+                      <option value="city-ev">City EV</option>
+                      <option value="supercar">Supercar</option>
+                      <option value="family-tourer">Family Tourer</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">Daily Base Rate (₹)</label>
+                    <input
+                      type="number"
+                      min={999}
+                      max={99999}
+                      value={newVehDailyPrice}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        setNewVehDailyPrice(val);
+                        setNewVehMonthlyPrice(val * 22);
+                      }}
+                      className="w-full px-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] outline-hidden font-mono"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">Monthly Subscription (₹)</label>
+                    <input
+                      type="number"
+                      min={9999}
+                      max={999999}
+                      value={newVehMonthlyPrice}
+                      onChange={(e) => setNewVehMonthlyPrice(Number(e.target.value))}
+                      className="w-full px-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] outline-hidden font-mono"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">Assigned Station Hub</label>
+                    <select
+                      value={newVehHubSlug}
+                      onChange={(e) => setNewVehHubSlug(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] bg-white outline-hidden"
+                    >
+                      {adminHubs.map((hub) => (
+                        <option key={hub.id || hub.slug} value={hub.slug}>
+                          {hub.name} ({hub.city})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">Assigned Agent Name</label>
+                    <input
+                      type="text"
+                      value={newVehAgent}
+                      onChange={(e) => setNewVehAgent(e.target.value)}
+                      placeholder="e.g. Vikram Batra"
+                      className="w-full px-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] outline-hidden"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">Fuel</label>
+                    <select
+                      value={newVehFuel}
+                      onChange={(e) => setNewVehFuel(e.target.value as CarType["specs"]["fuelType"])}
+                      className="w-full px-2.5 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] bg-white outline-hidden"
+                    >
+                      <option value="Petrol">Petrol</option>
+                      <option value="Diesel">Diesel</option>
+                      <option value="Electric">Electric</option>
+                      <option value="Hybrid">Hybrid</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">Gearbox</label>
+                    <select
+                      value={newVehTransmission}
+                      onChange={(e) =>
+                        setNewVehTransmission(e.target.value as CarType["specs"]["transmission"])
+                      }
+                      className="w-full px-2.5 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] bg-white outline-hidden"
+                    >
+                      <option value="Automatic">Automatic</option>
+                      <option value="Manual">Manual</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">Seats</label>
+                    <input
+                      type="number"
+                      min={2}
+                      max={12}
+                      value={newVehSeats}
+                      onChange={(e) => setNewVehSeats(Number(e.target.value))}
+                      className="w-full px-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] outline-hidden font-mono"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">Bags</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={8}
+                      value={newVehBags}
+                      onChange={(e) => setNewVehBags(Number(e.target.value))}
+                      className="w-full px-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] outline-hidden font-mono"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">Mileage / Range</label>
+                    <input
+                      type="text"
+                      value={newVehRange}
+                      onChange={(e) => setNewVehRange(e.target.value)}
+                      placeholder="e.g. 14.5 km/l"
+                      className="w-full px-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] outline-hidden"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">Horsepower</label>
+                    <input
+                      type="text"
+                      value={newVehHorsePower}
+                      onChange={(e) => setNewVehHorsePower(e.target.value)}
+                      placeholder="e.g. 190 bhp"
+                      className="w-full px-3 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-semibold text-[#172016] outline-hidden"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Feedback */}
+                {createVehicleFeedback && (
+                  <div
+                    className={`p-3 rounded-xl text-xs font-semibold flex items-center gap-2 ${
+                      createVehicleFeedback.type === "success"
+                        ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                        : "bg-red-50 text-red-800 border border-red-200"
+                    }`}
+                  >
+                    {createVehicleFeedback.type === "success" ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                    )}
+                    <span>{createVehicleFeedback.message}</span>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#F0F4ED]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCreateVehicleModalOpen(false);
+                      setCreateVehicleFeedback(null);
+                    }}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-[#5C6B5A] hover:bg-[#F3F6F1] transition-colors cursor-pointer"
+                    disabled={isCreatingVehicle}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isCreatingVehicle}
+                    className="inline-flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-extrabold bg-[#50644E] hover:bg-[#3D4D3B] text-white shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+                  >
+                    {isCreatingVehicle ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        Adding Vehicle...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-3.5 h-3.5" />
+                        Add Vehicle to Fleet
                       </>
                     )}
                   </button>

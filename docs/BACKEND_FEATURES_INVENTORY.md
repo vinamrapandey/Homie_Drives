@@ -33,7 +33,7 @@ These capabilities are system-level, non-configurable by standard customers, and
 * **Verification Status**: Verified via Automated Test Suite (Suite 1).
 * **Admin Portal Candidate**:
   - [x] Base Daily Rate and Security Deposit modifier currently live in `/admin`.
-  - [ ] **Global Fee Multiplier Tuner**: Expose dynamic toggles for GST percentage, platform fee %, and seasonal condition tier multipliers ($1.15\times$, $0.85\times$) without hardcoding.
+  - [x] **Global Fee Multiplier Tuner**: Dynamic sliders and inputs for GST percentage, platform fee %, FASTag preloads, seasonal condition tier multipliers ($1.15\times$, $0.85\times$), and high-demand surge pricing toggle live in `/admin`.
 
 ---
 
@@ -114,7 +114,9 @@ These capabilities are system-level, non-configurable by standard customers, and
   - Emits immutable `VEHICLE_HUB_REASSIGNED` audit record.
 * **Verification Status**: Verified and active in `/admin`.
 * **Admin Portal Candidate**:
-  - [x] Currently live in `/admin` under the Fleet Management tab.
+  - [x] Currently live in `/admin` under Fleet Management tab.
+  - [x] **Fleet CRUD & Path Editor**: Provision new fleet vehicles, edit vehicle specifications, custom route paths (`/cars/[slug]`), and availability.
+  - [x] **Hub Station CRUD & Path Editor**: Provision new operating hubs, edit station addresses, phone hotlines, and custom route paths (`/hubs/[slug]`).
 
 ---
 

@@ -23,8 +23,12 @@ const NAV_ITEMS: NavItem[] = [
 export const BottomNav: React.FC = () => {
   const pathname = usePathname();
 
-  // On car details pages, hide bottom navigation to let the dedicated booking bar shine
-  if (pathname.startsWith("/cars/")) {
+  // On car details, admin, and agent operational pages, hide bottom navigation
+  if (
+    pathname.startsWith("/cars/") ||
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/agent")
+  ) {
     return null;
   }
 

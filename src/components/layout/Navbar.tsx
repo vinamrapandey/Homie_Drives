@@ -141,6 +141,16 @@ export const Navbar: React.FC = () => {
 
           {/* User Auth Action & Fleet CTA */}
           <div className="flex items-center gap-2">
+            {/* Mobile Quick Call Button */}
+            <a
+              href="tel:+918448786016"
+              className="lg:hidden w-8 h-8 rounded-full bg-[#EAF0E7] hover:bg-[#dce7d8] text-[#50644E] flex items-center justify-center border border-[#DFE6DC] active:scale-95 transition-all shadow-2xs"
+              title="Call Homie Drives Hotline: 8448786016"
+              aria-label="Call Homie Drives Hotline: 8448786016"
+            >
+              <Phone className="w-3.5 h-3.5" />
+            </a>
+
             {/* Quick Call Direct Booking */}
             <a
               href="tel:+918448786016"

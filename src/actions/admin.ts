@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getUserRole } from "@/lib/supabase/roles";
 import { revalidatePath } from "next/cache";
 import { LocationHub } from "@/types/booking";
+import { CarCategory, FuelType, TransmissionType, Car as CarType } from "@/types/car";
 
 // ==============================================================================
 // Zod Schema: Vehicle Hub Reassignment
@@ -141,6 +142,7 @@ export async function reassignVehicleHubAction(
 // ==============================================================================
 export const updateHubLocationSchema = z.object({
   hubId: z.string().min(1, "Hub identifier required"),
+  slug: z.string().optional(),
   name: z.string().min(2, "Hub name required"),
   area: z.string().min(2, "Area / landmark required"),
   city: z.string().min(2, "City required"),
@@ -188,15 +190,20 @@ export async function updateHubLocationAction(
 
     // 2. Attempt Database Mutation if Supabase table exists
     try {
+      const updateData: Record<string, unknown> = {
+        name: validated.name,
+        address: validated.address,
+        city: validated.city,
+        is_active: validated.status === "active",
+        updated_at: new Date().toISOString(),
+      };
+      if (validated.slug) {
+        updateData.slug = validated.slug;
+      }
+
       const { error: updateError } = await supabase
         .from("pickup_locations")
-        .update({
-          name: validated.name,
-          address: validated.address,
-          city: validated.city,
-          is_active: validated.status === "active",
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .or(`id.eq.${validated.hubId},slug.eq.${validated.hubId}`);
 
       if (!updateError && user) {
@@ -208,6 +215,7 @@ export async function updateHubLocationAction(
           entity_id: validated.hubId,
           payload: {
             hub_name: validated.name,
+            slug: validated.slug || validated.hubId,
             area: validated.area,
             city: validated.city,
             address: validated.address,
@@ -225,6 +233,10 @@ export async function updateHubLocationAction(
     revalidatePath("/admin");
     revalidatePath("/plan");
     revalidatePath("/");
+    if (validated.slug) {
+      revalidatePath(`/hubs/${validated.slug}`);
+    }
+    revalidatePath(`/hubs/${validated.hubId}`);
 
     return {
       success: true,
@@ -436,6 +448,299 @@ export async function toggleVehicleAvailabilityAction(input: ToggleVehicleAvaila
     return {
       success: false,
       error: err instanceof Error ? err.message : "Failed to toggle vehicle availability",
+    };
+  }
+}
+
+// ==============================================================================
+// Zod Schema & Server Action: Update Vehicle Details & Custom Paths
+// ==============================================================================
+export const updateVehicleDetailsSchema = z.object({
+  vehicleId: z.string().min(1, "Vehicle ID required"),
+  name: z.string().min(2, "Vehicle name required"),
+  slug: z.string().min(2, "Vehicle URL path / slug required"),
+  brand: z.string().min(2, "Brand name required"),
+  category: z.enum([
+    "supercar",
+    "luxury-sedan",
+    "performance-suv",
+    "city-ev",
+    "touring-suv",
+    "adventure-4x4",
+    "family-tourer",
+  ]),
+  categoryLabel: z.string().min(2, "Category label required"),
+  dailyPriceINR: z.number().min(999, "Daily price must be at least ₹999"),
+  monthlyPriceINR: z.number().min(9999, "Monthly price must be at least ₹9,999"),
+  hubLocation: z.string().min(2, "Hub location required"),
+  hubSlug: z.string().min(2, "Hub slug required"),
+  agentAssigned: z.string().min(2, "Assigned agent required"),
+  fuelType: z.enum(["Petrol", "Diesel", "Electric", "Hybrid"]),
+  transmission: z.enum(["Automatic", "Manual"]),
+  seats: z.number().min(2).max(12),
+  luggageBags: z.number().min(1).max(8),
+  rangeOrMileage: z.string().min(2, "Range/Mileage required"),
+  horsePower: z.string().min(2, "Horsepower required"),
+  topSpeed: z.string().optional().default("200 km/h"),
+  isAvailableDemo: z.boolean().default(true),
+  unavailableReason: z.string().optional(),
+  reason: z.string().min(3, "Update reason required for audit compliance"),
+});
+
+export type UpdateVehicleDetailsInput = z.input<typeof updateVehicleDetailsSchema>;
+
+export interface UpdateVehicleDetailsResult {
+  success: boolean;
+  message?: string;
+  error?: string;
+}
+
+export async function updateVehicleDetailsAction(
+  input: UpdateVehicleDetailsInput
+): Promise<UpdateVehicleDetailsResult> {
+  try {
+    const validated = updateVehicleDetailsSchema.parse(input);
+    const supabase = await createClient();
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (user && !authError) {
+      const role = await getUserRole(user.id);
+      if (role !== "master_admin") {
+        return {
+          success: false,
+          error: "Forbidden: Only Master Administrators can edit vehicle configurations.",
+        };
+      }
+    }
+
+    try {
+      await supabase
+        .from("vehicles")
+        .update({
+          name: validated.name,
+          slug: validated.slug,
+          brand: validated.brand,
+          category: validated.category,
+          daily_rate_inr: validated.dailyPriceINR,
+          operational_status: validated.isAvailableDemo ? "active" : "maintenance",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", validated.vehicleId);
+
+      if (user) {
+        await supabase.from("audit_logs").insert({
+          actor_id: user.id,
+          action: "VEHICLE_DETAILS_UPDATED",
+          entity_name: "vehicles",
+          entity_id: validated.vehicleId,
+          payload: {
+            name: validated.name,
+            slug: validated.slug,
+            brand: validated.brand,
+            category: validated.category,
+            dailyPriceINR: validated.dailyPriceINR,
+            hubSlug: validated.hubSlug,
+            agentAssigned: validated.agentAssigned,
+            reason: validated.reason,
+          },
+        });
+      }
+    } catch {
+      // Demo environment fallback
+    }
+
+    revalidatePath("/admin");
+    revalidatePath("/agent");
+    revalidatePath("/plan");
+    revalidatePath("/");
+    revalidatePath(`/cars/${validated.slug}`);
+
+    return {
+      success: true,
+      message: `Vehicle ${validated.name} (Path: /cars/${validated.slug}) updated successfully.`,
+    };
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return {
+        success: false,
+        error: err.issues.map((i) => i.message).join(", "),
+      };
+    }
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to update vehicle details.",
+    };
+  }
+}
+
+// ==============================================================================
+// Zod Schema & Server Action: Create / Add New Vehicle to Fleet
+// ==============================================================================
+export const createVehicleSchema = z.object({
+  name: z.string().min(2, "Vehicle name required"),
+  slug: z.string().min(2, "Vehicle URL path / slug required"),
+  brand: z.string().min(2, "Brand name required"),
+  category: z.enum([
+    "supercar",
+    "luxury-sedan",
+    "performance-suv",
+    "city-ev",
+    "touring-suv",
+    "adventure-4x4",
+    "family-tourer",
+  ]),
+  categoryLabel: z.string().min(2, "Category label required"),
+  dailyPriceINR: z.number().min(999, "Daily price must be at least ₹999"),
+  monthlyPriceINR: z.number().min(9999, "Monthly price must be at least ₹9,999"),
+  hubLocation: z.string().min(2, "Hub location required"),
+  hubSlug: z.string().min(2, "Hub slug required"),
+  agentAssigned: z.string().min(2, "Assigned agent required"),
+  fuelType: z.enum(["Petrol", "Diesel", "Electric", "Hybrid"]),
+  transmission: z.enum(["Automatic", "Manual"]),
+  seats: z.number().min(2).max(12),
+  luggageBags: z.number().min(1).max(8),
+  rangeOrMileage: z.string().min(2, "Range/Mileage required"),
+  horsePower: z.string().min(2, "Horsepower required"),
+  topSpeed: z.string().optional().default("200 km/h"),
+  image: z.string().optional().default("/images/cars/homie_thar_roxx.jpg"),
+  year: z.number().optional().default(2024),
+  description: z.string().optional().default("Homie Drives verified luxury self-drive vehicle."),
+  isAvailableDemo: z.boolean().optional().default(true),
+});
+
+export type CreateVehicleInput = z.input<typeof createVehicleSchema>;
+
+export interface CreateVehicleResult {
+  success: boolean;
+  message?: string;
+  vehicle?: CarType;
+  error?: string;
+}
+
+export async function createVehicleAction(
+  input: CreateVehicleInput
+): Promise<CreateVehicleResult> {
+  try {
+    const validated = createVehicleSchema.parse(input);
+    const supabase = await createClient();
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (user && !authError) {
+      const role = await getUserRole(user.id);
+      if (role !== "master_admin") {
+        return {
+          success: false,
+          error: "Forbidden: Only Master Administrators can add new vehicles.",
+        };
+      }
+    }
+
+    const generatedId = `car-${validated.slug}-${Date.now().toString(36)}`;
+
+    try {
+      await supabase.from("vehicles").insert({
+        id: generatedId,
+        name: validated.name,
+        slug: validated.slug,
+        brand: validated.brand,
+        category: validated.category,
+        daily_rate_inr: validated.dailyPriceINR,
+        operational_status: validated.isAvailableDemo ? "active" : "maintenance",
+      });
+
+      if (user) {
+        await supabase.from("audit_logs").insert({
+          actor_id: user.id,
+          action: "VEHICLE_CREATED",
+          entity_name: "vehicles",
+          entity_id: generatedId,
+          payload: {
+            name: validated.name,
+            slug: validated.slug,
+            brand: validated.brand,
+            dailyPriceINR: validated.dailyPriceINR,
+            hubSlug: validated.hubSlug,
+          },
+        });
+      }
+    } catch {
+      // Demo environment fallback
+    }
+
+    revalidatePath("/admin");
+    revalidatePath("/agent");
+    revalidatePath("/plan");
+    revalidatePath("/");
+    revalidatePath(`/cars/${validated.slug}`);
+
+    const newVehicle: CarType = {
+      id: generatedId,
+      slug: validated.slug,
+      name: validated.name,
+      brand: validated.brand,
+      category: validated.category,
+      categoryLabel: validated.categoryLabel,
+      year: validated.year,
+      badgeTag: "Newly Added",
+      rating: 5.0,
+      reviewsCount: 1,
+      dailyPriceINR: validated.dailyPriceINR,
+      monthlyPriceINR: validated.monthlyPriceINR,
+      hubLocation: validated.hubLocation,
+      hubSlug: validated.hubSlug,
+      image: validated.image,
+      description: validated.description,
+      specs: {
+        rangeOrMileage: validated.rangeOrMileage,
+        horsePower: validated.horsePower,
+        topSpeed: validated.topSpeed,
+        fuelType: validated.fuelType,
+        transmission: validated.transmission,
+        seats: validated.seats,
+        luggageBags: validated.luggageBags,
+      },
+      features: [
+        "FASTag Enabled",
+        "Comprehensive Insurance",
+        "Air Purifier",
+        "Wireless Apple CarPlay",
+        "360 Camera",
+      ],
+      isAvailableDemo: validated.isAvailableDemo,
+      agentAssigned: validated.agentAssigned,
+      defaultConditionTier: "mint",
+      telematicsStatus: {
+        fuelOrBatteryPercent: 100,
+        sanitizedTimeAgo: "Just now",
+        keylessReady: true,
+        fastagActive: true,
+        gpsStatus: "GPS NOT CONNECTED",
+      },
+    };
+
+    return {
+      success: true,
+      message: `Vehicle ${validated.name} successfully added to fleet at ${validated.hubLocation}.`,
+      vehicle: newVehicle,
+    };
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return {
+        success: false,
+        error: err.issues.map((i) => i.message).join(", "),
+      };
+    }
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to add vehicle to fleet.",
     };
   }
 }
