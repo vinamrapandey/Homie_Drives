@@ -303,12 +303,12 @@ export default function MasterAdminPortalPage() {
       <div className="bg-[#101710] text-white border-b border-[#253224] py-3.5 px-4 sm:px-6">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl overflow-hidden shadow-2xs shrink-0 bg-white/10 p-0.5">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden shadow-2xs shrink-0 bg-white/10 p-0.5">
               <Image
                 src="/images/logo/homie_drives.png"
                 alt="Homie Drives"
-                width={40}
-                height={40}
+                width={64}
+                height={64}
                 className="w-full h-full object-contain"
               />
             </div>

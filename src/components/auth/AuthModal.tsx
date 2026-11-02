@@ -144,12 +144,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         {/* Brand Header */}
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-12 h-12 rounded-2xl overflow-hidden shadow-2xs shrink-0 bg-[#F3F6F1] p-1 border border-[#E8EFE5]">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden shadow-2xs shrink-0 bg-[#F3F6F1] p-1 border border-[#E8EFE5]">
             <Image
               src="/images/logo/homie_drives.png"
               alt="Homie Drives"
-              width={48}
-              height={48}
+              width={80}
+              height={80}
               className="w-full h-full object-contain"
             />
           </div>
