@@ -16,6 +16,9 @@ import {
 } from "@/actions/admin";
 import { updatePlatformSettingsAction } from "@/actions/platformSettings";
 import { DEFAULT_PLATFORM_SETTINGS, PlatformPricingSettings } from "@/data/platformSettings";
+import { CustomerKYCRecord, KYCVerificationStatus, KYCRiskLevel } from "@/types/kyc";
+import { INITIAL_KYC_RECORDS } from "@/data/kycRecords";
+import { reviewCustomerKYCAction, requestKYCReuploadAction } from "@/actions/kyc";
 import { DELHI_NCR_LOCATIONS } from "@/data/locations";
 import { formatINR } from "@/lib/formatters";
 import { Car as CarType } from "@/types/car";
@@ -50,6 +53,14 @@ import {
   Percent,
   Zap,
   Sparkles,
+  FileBadge,
+  Eye,
+  Check,
+  Ban,
+  UserCheck,
+  FileText,
+  AlertOctagon,
+  BadgeAlert,
 } from "lucide-react";
 
 export default function MasterAdminPortalPage() {
@@ -58,9 +69,130 @@ export default function MasterAdminPortalPage() {
   const { hubs } = useHubLocations();
 
   const [activeTab, setActiveTab] = useState<
-    "fleet" | "hubs" | "pricing" | "audit" | "agents"
+    "fleet" | "hubs" | "pricing" | "kyc" | "audit" | "agents"
   >("fleet");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Customer DigiLocker KYC Verification Queue State
+  const [kycRecords, setKycRecords] = useState<CustomerKYCRecord[]>(INITIAL_KYC_RECORDS);
+  const [kycFilter, setKycFilter] = useState<"all" | "pending_review" | "verified" | "flagged">("all");
+  const [kycSearch, setKycSearch] = useState("");
+  const [inspectingKYC, setInspectingKYC] = useState<CustomerKYCRecord | null>(null);
+  const [reviewNotes, setReviewNotes] = useState("");
+  const [selectedRisk, setSelectedRisk] = useState<KYCRiskLevel>("low");
+  const [isReviewingKYC, setIsReviewingKYC] = useState(false);
+  const [kycFeedback, setKycFeedback] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
+
+  const pendingKYCCount = kycRecords.filter((k) => k.digilockerStatus === "pending_review").length;
+
+  const handleOpenKYCDossier = (record: CustomerKYCRecord) => {
+    setInspectingKYC(record);
+    setReviewNotes(record.reviewNotes || "");
+    setSelectedRisk(record.riskLevel);
+    setKycFeedback(null);
+  };
+
+  const handleReviewKYC = async (newStatus: KYCVerificationStatus) => {
+    if (!inspectingKYC) return;
+    setIsReviewingKYC(true);
+    setKycFeedback(null);
+
+    try {
+      const res = await reviewCustomerKYCAction({
+        kycId: inspectingKYC.id,
+        status: newStatus,
+        riskLevel: selectedRisk,
+        notes: reviewNotes.trim() || `Administrative decision: Marked ${newStatus.toUpperCase()}`,
+      });
+
+      if (res.success) {
+        setKycFeedback({
+          type: "success",
+          message: res.message || `Customer KYC updated to ${newStatus.toUpperCase()}.`,
+        });
+        setKycRecords((prev) =>
+          prev.map((k) =>
+            k.id === inspectingKYC.id
+              ? {
+                  ...k,
+                  digilockerStatus: newStatus,
+                  riskLevel: selectedRisk,
+                  reviewNotes: reviewNotes.trim() || k.reviewNotes,
+                  reviewedBy: user?.email || "Master Administrator",
+                  reviewedAt: new Date().toISOString(),
+                }
+              : k
+          )
+        );
+        setTimeout(() => {
+          setInspectingKYC(null);
+          setKycFeedback(null);
+        }, 1500);
+      } else {
+        setKycFeedback({
+          type: "error",
+          message: res.error || "Failed to update KYC status.",
+        });
+      }
+    } catch (err) {
+      setKycFeedback({
+        type: "error",
+        message: err instanceof Error ? err.message : "Error updating KYC review.",
+      });
+    } finally {
+      setIsReviewingKYC(false);
+    }
+  };
+
+  const handleRequestReupload = async () => {
+    if (!inspectingKYC) return;
+    setIsReviewingKYC(true);
+    setKycFeedback(null);
+
+    try {
+      const res = await requestKYCReuploadAction({
+        kycId: inspectingKYC.id,
+        reason: reviewNotes.trim() || "Uploaded driving license image is blurry or expired. Please re-upload.",
+      });
+
+      if (res.success) {
+        setKycFeedback({
+          type: "success",
+          message: res.message || "Document re-upload requested.",
+        });
+        setKycRecords((prev) =>
+          prev.map((k) =>
+            k.id === inspectingKYC.id
+              ? {
+                  ...k,
+                  digilockerStatus: "pending_review",
+                  reviewNotes: `Re-upload requested: ${reviewNotes.trim()}`,
+                }
+              : k
+          )
+        );
+        setTimeout(() => {
+          setInspectingKYC(null);
+          setKycFeedback(null);
+        }, 1500);
+      } else {
+        setKycFeedback({
+          type: "error",
+          message: res.error || "Failed to request re-upload.",
+        });
+      }
+    } catch (err) {
+      setKycFeedback({
+        type: "error",
+        message: err instanceof Error ? err.message : "Error requesting re-upload.",
+      });
+    } finally {
+      setIsReviewingKYC(false);
+    }
+  };
 
   // Platform Pricing & Multipliers State
   const [platformSettings, setPlatformSettings] =
@@ -784,12 +916,12 @@ export default function MasterAdminPortalPage() {
           </div>
         </div>
 
-        {/* Tab Controls: Fleet Inventory / Audit Log / Hub Agents */}
-        <div className="flex items-center gap-2 border-b border-[#E1E8DF] pb-2 text-xs font-bold">
+        {/* Tab Controls: Fleet / Hubs / Pricing / KYC / Audit / Agents */}
+        <div className="flex items-center gap-2 border-b border-[#E1E8DF] pb-2 text-xs font-bold overflow-x-auto no-scrollbar flex-nowrap">
           <button
             type="button"
             onClick={() => setActiveTab("fleet")}
-            className={`px-4 py-2 rounded-xl transition-all cursor-pointer ${
+            className={`px-4 py-2 rounded-xl transition-all cursor-pointer whitespace-nowrap ${
               activeTab === "fleet"
                 ? "bg-[#50644E] text-white shadow-sm"
                 : "text-[#5C6B5A] hover:text-[#172016] hover:bg-white"
@@ -800,7 +932,7 @@ export default function MasterAdminPortalPage() {
           <button
             type="button"
             onClick={() => setActiveTab("hubs")}
-            className={`px-4 py-2 rounded-xl transition-all cursor-pointer ${
+            className={`px-4 py-2 rounded-xl transition-all cursor-pointer whitespace-nowrap ${
               activeTab === "hubs"
                 ? "bg-[#50644E] text-white shadow-sm"
                 : "text-[#5C6B5A] hover:text-[#172016] hover:bg-white"
@@ -810,8 +942,42 @@ export default function MasterAdminPortalPage() {
           </button>
           <button
             type="button"
+            onClick={() => setActiveTab("pricing")}
+            className={`px-4 py-2 rounded-xl transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === "pricing"
+                ? "bg-[#50644E] text-white shadow-sm"
+                : "text-[#5C6B5A] hover:text-[#172016] hover:bg-white"
+            }`}
+          >
+            Pricing Engine &amp; Taxes
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("kyc")}
+            className={`px-4 py-2 rounded-xl transition-all cursor-pointer whitespace-nowrap flex items-center gap-2 ${
+              activeTab === "kyc"
+                ? "bg-[#50644E] text-white shadow-sm"
+                : "text-[#5C6B5A] hover:text-[#172016] hover:bg-white"
+            }`}
+          >
+            <FileBadge className="w-3.5 h-3.5" />
+            <span>Customer KYC Queue</span>
+            {pendingKYCCount > 0 && (
+              <span
+                className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+                  activeTab === "kyc"
+                    ? "bg-amber-300 text-stone-900"
+                    : "bg-amber-100 text-amber-800"
+                }`}
+              >
+                {pendingKYCCount}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
             onClick={() => setActiveTab("audit")}
-            className={`px-4 py-2 rounded-xl transition-all ${
+            className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap ${
               activeTab === "audit"
                 ? "bg-[#50644E] text-white shadow-sm"
                 : "text-[#5C6B5A] hover:text-[#172016] hover:bg-white"
@@ -822,7 +988,7 @@ export default function MasterAdminPortalPage() {
           <button
             type="button"
             onClick={() => setActiveTab("agents")}
-            className={`px-4 py-2 rounded-xl transition-all ${
+            className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap ${
               activeTab === "agents"
                 ? "bg-[#50644E] text-white shadow-sm"
                 : "text-[#5C6B5A] hover:text-[#172016] hover:bg-white"
@@ -1455,6 +1621,298 @@ export default function MasterAdminPortalPage() {
                 </button>
               </div>
             </form>
+          </div>
+        )}
+
+        {/* TAB 4: CUSTOMER DIGILOCKER KYC VERIFICATION QUEUE */}
+        {activeTab === "kyc" && (
+          <div className="bg-white rounded-3xl border border-[#E8EFE5] shadow-homie overflow-hidden">
+            {/* Header with Stats */}
+            <div className="p-5 sm:p-6 border-b border-[#F0F4ED] flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-bold text-[#172016]">
+                    Customer DigiLocker KYC Verification Queue
+                  </h2>
+                  <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-200">
+                    UIDAI &amp; MoRTH Linked
+                  </span>
+                </div>
+                <p className="text-xs text-[#5C6B5A] mt-1">
+                  Cryptographically verified driving licenses &amp; masked Aadhaar credentials via Government DigiLocker gateway.
+                </p>
+              </div>
+
+              {/* Status Counters */}
+              <div className="flex items-center gap-2 flex-wrap text-xs">
+                <div className="px-3 py-1.5 rounded-xl bg-[#F8FAF7] border border-[#E8EFE5] flex items-center gap-2">
+                  <span className="text-[#5C6B5A] font-semibold">Total:</span>
+                  <span className="font-extrabold text-[#172016]">{kycRecords.length}</span>
+                </div>
+                <div className="px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 flex items-center gap-2">
+                  <span className="text-amber-800 font-semibold">Pending Review:</span>
+                  <span className="font-extrabold text-amber-900">{pendingKYCCount}</span>
+                </div>
+                <div className="px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center gap-2">
+                  <span className="text-emerald-800 font-semibold">Verified:</span>
+                  <span className="font-extrabold text-emerald-900">
+                    {kycRecords.filter((k) => k.digilockerStatus === "verified").length}
+                  </span>
+                </div>
+                <div className="px-3 py-1.5 rounded-xl bg-rose-50 border border-rose-200 flex items-center gap-2">
+                  <span className="text-rose-800 font-semibold">Flagged / Risk:</span>
+                  <span className="font-extrabold text-rose-900">
+                    {kycRecords.filter((k) => k.digilockerStatus === "flagged" || k.digilockerStatus === "rejected").length}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Filter Bar & Search */}
+            <div className="p-4 sm:p-5 bg-[#FAFBF9] border-b border-[#F0F4ED] flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => setKycFilter("all")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    kycFilter === "all"
+                      ? "bg-[#50644E] text-white shadow-xs"
+                      : "bg-white text-[#5C6B5A] hover:bg-[#F0F4ED] border border-[#E8EFE5]"
+                  }`}
+                >
+                  All Records ({kycRecords.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setKycFilter("pending_review")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    kycFilter === "pending_review"
+                      ? "bg-[#50644E] text-white shadow-xs"
+                      : "bg-white text-[#5C6B5A] hover:bg-[#F0F4ED] border border-[#E8EFE5]"
+                  }`}
+                >
+                  Pending Review ({pendingKYCCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setKycFilter("verified")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    kycFilter === "verified"
+                      ? "bg-[#50644E] text-white shadow-xs"
+                      : "bg-white text-[#5C6B5A] hover:bg-[#F0F4ED] border border-[#E8EFE5]"
+                  }`}
+                >
+                  Verified Drivers
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setKycFilter("flagged")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    kycFilter === "flagged"
+                      ? "bg-[#50644E] text-white shadow-xs"
+                      : "bg-white text-[#5C6B5A] hover:bg-[#F0F4ED] border border-[#E8EFE5]"
+                  }`}
+                >
+                  Flagged Risk
+                </button>
+              </div>
+
+              <div className="relative w-full sm:w-72">
+                <Search className="w-4 h-4 text-[#829280] absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search customer, DL or phone..."
+                  value={kycSearch}
+                  onChange={(e) => setKycSearch(e.target.value)}
+                  className="w-full pl-9 pr-3.5 py-2 bg-white rounded-xl border border-[#CFD8CD] text-xs font-medium text-[#172016] placeholder:text-[#829280] focus:outline-hidden focus:border-[#50644E]"
+                />
+              </div>
+            </div>
+
+            {/* KYC Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-[#F0F4ED] bg-[#F8FAF7] text-[11px] font-black uppercase tracking-wider text-[#5C6B5A]">
+                    <th className="p-4 sm:pl-6">Customer &amp; Contact</th>
+                    <th className="p-4">DigiLocker Status</th>
+                    <th className="p-4">UIDAI Aadhaar</th>
+                    <th className="p-4">MoRTH Sarathi License</th>
+                    <th className="p-4">Risk Profile</th>
+                    <th className="p-4 sm:pr-6 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#F0F4ED] text-xs">
+                  {kycRecords
+                    .filter((k) => {
+                      const matchesFilter =
+                        kycFilter === "all" ? true : k.digilockerStatus === kycFilter;
+                      const q = kycSearch.toLowerCase().trim();
+                      const matchesSearch =
+                        !q ||
+                        k.fullName.toLowerCase().includes(q) ||
+                        k.phone.includes(q) ||
+                        k.email.toLowerCase().includes(q) ||
+                        k.drivingLicense.dlNumber.toLowerCase().includes(q) ||
+                        k.aadhaar.maskedNumber.toLowerCase().includes(q);
+                      return matchesFilter && matchesSearch;
+                    })
+                    .map((record) => {
+                      return (
+                        <tr
+                          key={record.id}
+                          className="hover:bg-[#FBFDFB] transition-colors"
+                        >
+                          {/* Customer Info */}
+                          <td className="p-4 sm:pl-6">
+                            <div className="font-extrabold text-[#172016] text-sm flex items-center gap-1.5">
+                              <span>{record.fullName}</span>
+                              {record.digilockerStatus === "verified" && (
+                                <ShieldCheck className="w-4 h-4 text-emerald-600 inline shrink-0" />
+                              )}
+                            </div>
+                            <div className="text-[#5C6B5A] text-[11px] mt-0.5 space-y-0.5">
+                              <div>+91 {record.phone}</div>
+                              <div className="text-[#829280]">{record.email}</div>
+                              <div className="text-[10px] text-[#5C6B5A]">
+                                {record.aadhaar.city}, {record.aadhaar.state}
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* DigiLocker Status */}
+                          <td className="p-4">
+                            {record.digilockerStatus === "verified" && (
+                              <span className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                Verified Driver
+                              </span>
+                            )}
+                            {record.digilockerStatus === "pending_review" && (
+                              <span className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+                                <Clock className="w-3.5 h-3.5 text-amber-600" />
+                                Pending Review
+                              </span>
+                            )}
+                            {record.digilockerStatus === "flagged" && (
+                              <span className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full bg-rose-50 text-rose-800 border border-rose-200">
+                                <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+                                Flagged Risk
+                              </span>
+                            )}
+                            {record.digilockerStatus === "rejected" && (
+                              <span className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full bg-stone-100 text-stone-700 border border-stone-200">
+                                <Ban className="w-3.5 h-3.5 text-stone-500" />
+                                Rejected
+                              </span>
+                            )}
+                            <div className="text-[10px] text-[#829280] mt-1 font-mono">
+                              {new Date(record.createdAt).toLocaleDateString("en-IN", {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                              })}
+                            </div>
+                          </td>
+
+                          {/* Aadhaar Info */}
+                          <td className="p-4">
+                            <div className="font-mono font-bold text-[#172016]">
+                              {record.aadhaar.maskedNumber}
+                            </div>
+                            <div className="flex items-center gap-1.5 mt-1">
+                              {record.aadhaar.ageCheckPassed ? (
+                                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                                  {record.aadhaar.age} yrs • 23+ Policy OK
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200">
+                                  {record.aadhaar.age} yrs • Under 23
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[10px] text-[#829280] mt-0.5">
+                              UIDAI Verified Token
+                            </div>
+                          </td>
+
+                          {/* Driving License */}
+                          <td className="p-4">
+                            <div className="font-mono font-bold text-[#172016]">
+                              {record.drivingLicense.dlNumber}
+                            </div>
+                            <div className="text-[11px] text-[#5C6B5A] mt-0.5">
+                              {record.drivingLicense.issuingRTO}
+                            </div>
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <span className="text-[10px] font-mono font-bold bg-[#EAF0E7] text-[#3D4D3B] px-1.5 py-0.5 rounded-md border border-[#D5E2D1]">
+                                {record.drivingLicense.vehicleClasses.join(", ")}
+                              </span>
+                              <span className="text-[10px] text-[#829280]">
+                                Exp: {record.drivingLicense.expiryDate}
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* Risk Profile */}
+                          <td className="p-4">
+                            {record.riskLevel === "low" && (
+                              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                                Low Risk
+                              </span>
+                            )}
+                            {record.riskLevel === "medium" && (
+                              <span className="text-[10px] font-black uppercase tracking-wider text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
+                                Medium Risk
+                              </span>
+                            )}
+                            {record.riskLevel === "high" && (
+                              <span className="text-[10px] font-black uppercase tracking-wider text-rose-700 bg-rose-50 px-2.5 py-1 rounded-full border border-rose-200">
+                                High Risk
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Action */}
+                          <td className="p-4 sm:pr-6 text-right">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenKYCDossier(record)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-[#F3F6F1] hover:bg-[#50644E] text-[#3D4D3B] hover:text-white transition-all border border-[#CFD8CD] hover:border-[#50644E] cursor-pointer shadow-2xs"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>Inspect Dossier</span>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Empty state */}
+            {kycRecords.filter((k) => {
+              const matchesFilter =
+                kycFilter === "all" ? true : k.digilockerStatus === kycFilter;
+              const q = kycSearch.toLowerCase().trim();
+              const matchesSearch =
+                !q ||
+                k.fullName.toLowerCase().includes(q) ||
+                k.phone.includes(q) ||
+                k.email.toLowerCase().includes(q) ||
+                k.drivingLicense.dlNumber.toLowerCase().includes(q) ||
+                k.aadhaar.maskedNumber.toLowerCase().includes(q);
+              return matchesFilter && matchesSearch;
+            }).length === 0 && (
+              <div className="p-12 text-center text-[#5C6B5A]">
+                <FileBadge className="w-8 h-8 text-[#829280] mx-auto mb-2 opacity-50" />
+                <p className="font-bold text-sm">No Customer KYC records matched your query.</p>
+                <p className="text-xs text-[#829280] mt-1">
+                  Try adjusting the filter status or clearing the search bar.
+                </p>
+              </div>
+            )}
           </div>
         )}
 
@@ -2852,6 +3310,340 @@ export default function MasterAdminPortalPage() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* Customer DigiLocker KYC Dossier Inspection Modal */}
+        {inspectingKYC && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+            <div className="bg-white rounded-3xl max-w-2xl w-full border border-[#E8EFE5] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
+              {/* Header */}
+              <div className="p-5 sm:p-6 bg-[#172016] text-white flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-emerald-400">
+                    <FileBadge className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-base flex items-center gap-2">
+                      <span>Government DigiLocker KYC Dossier</span>
+                      <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-400/30">
+                        {inspectingKYC.digilockerStatus.toUpperCase()}
+                      </span>
+                    </h3>
+                    <p className="text-xs text-white/60">
+                      Customer ID: {inspectingKYC.id} • Registered: {new Date(inspectingKYC.createdAt).toLocaleDateString("en-IN")}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInspectingKYC(null);
+                    setKycFeedback(null);
+                  }}
+                  className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/80 hover:text-white transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Scrollable Dossier Content */}
+              <div className="p-5 sm:p-6 space-y-6 overflow-y-auto flex-1">
+                {/* Customer Contact & Address Snapshot */}
+                <div className="p-4 bg-[#F8FAF7] rounded-2xl border border-[#E8EFE5]">
+                  <h4 className="text-[11px] font-black uppercase tracking-wider text-[#5C6B5A] mb-3">
+                    Customer Profile &amp; Residency Verification
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                    <div>
+                      <span className="text-[#829280] block text-[10px] uppercase font-bold">Full Legal Name</span>
+                      <span className="font-extrabold text-[#172016]">{inspectingKYC.fullName}</span>
+                    </div>
+                    <div>
+                      <span className="text-[#829280] block text-[10px] uppercase font-bold">Contact Phone</span>
+                      <span className="font-mono font-bold text-[#172016]">+91 {inspectingKYC.phone}</span>
+                    </div>
+                    <div>
+                      <span className="text-[#829280] block text-[10px] uppercase font-bold">Verified Email</span>
+                      <span className="font-medium text-[#172016] truncate block">{inspectingKYC.email}</span>
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-[#E8EFE5] text-xs">
+                    <span className="text-[#829280] block text-[10px] uppercase font-bold">Registered Residential Address</span>
+                    <span className="text-[#172016] font-medium">
+                      {inspectingKYC.aadhaar.address}, {inspectingKYC.aadhaar.city}, {inspectingKYC.aadhaar.state} - {inspectingKYC.aadhaar.pincode}
+                    </span>
+                    {inspectingKYC.aadhaar.isNcrResident && (
+                      <span className="inline-block mt-1 text-[10px] font-bold text-[#3D4D3B] bg-[#EAF0E7] px-2 py-0.5 rounded-md border border-[#D5E2D1]">
+                        Delhi NCR Resident
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Verification Dual-Card Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Card 1: Masked UIDAI Aadhaar */}
+                  <div className="p-4 rounded-2xl border border-[#E8EFE5] bg-white space-y-3 shadow-2xs">
+                    <div className="flex items-center justify-between border-b border-[#F0F4ED] pb-2.5">
+                      <div className="flex items-center gap-2">
+                        <Lock className="w-4 h-4 text-[#50644E]" />
+                        <span className="font-extrabold text-xs text-[#172016]">UIDAI Masked Aadhaar</span>
+                      </div>
+                      <span className="text-[10px] font-black bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-200">
+                        UIDAI Encrypted
+                      </span>
+                    </div>
+
+                    <div className="space-y-2 text-xs">
+                      <div>
+                        <span className="text-[#829280] text-[10px] block font-bold">Aadhaar Reference</span>
+                        <span className="font-mono font-extrabold text-sm text-[#172016]">
+                          {inspectingKYC.aadhaar.maskedNumber}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <span className="text-[#829280] text-[10px] block font-bold">Date of Birth</span>
+                          <span className="font-medium text-[#172016]">{inspectingKYC.aadhaar.dob}</span>
+                        </div>
+                        <div>
+                          <span className="text-[#829280] text-[10px] block font-bold">Age</span>
+                          <span className="font-bold text-[#172016]">{inspectingKYC.aadhaar.age} years old</span>
+                        </div>
+                      </div>
+
+                      {/* Policy Verification Alert */}
+                      <div
+                        className={`p-2.5 rounded-xl border flex items-start gap-2 text-[11px] ${
+                          inspectingKYC.aadhaar.ageCheckPassed
+                            ? "bg-emerald-50 border-emerald-200 text-emerald-900"
+                            : "bg-rose-50 border-rose-200 text-rose-900"
+                        }`}
+                      >
+                        {inspectingKYC.aadhaar.ageCheckPassed ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                            <span>
+                              <strong>23+ Policy Passed:</strong> Customer meets Homie Drives minimum self-drive requirement.
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" />
+                            <span>
+                              <strong>Policy Violation:</strong> Customer is under 23 years. Ineligible for self-drive rental.
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card 2: MoRTH Sarathi Driving License */}
+                  <div className="p-4 rounded-2xl border border-[#E8EFE5] bg-white space-y-3 shadow-2xs">
+                    <div className="flex items-center justify-between border-b border-[#F0F4ED] pb-2.5">
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-[#50644E]" />
+                        <span className="font-extrabold text-xs text-[#172016]">MoRTH Sarathi DL</span>
+                      </div>
+                      <span className="text-[10px] font-black bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full border border-blue-200">
+                        Sarathi RTO Verified
+                      </span>
+                    </div>
+
+                    <div className="space-y-2 text-xs">
+                      <div>
+                        <span className="text-[#829280] text-[10px] block font-bold">Driving License Number</span>
+                        <span className="font-mono font-extrabold text-sm text-[#172016]">
+                          {inspectingKYC.drivingLicense.dlNumber}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[#829280] text-[10px] block font-bold">Issuing Regional Transport Office</span>
+                        <span className="font-medium text-[#172016]">{inspectingKYC.drivingLicense.issuingRTO}</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <span className="text-[#829280] text-[10px] block font-bold">Vehicle Class</span>
+                          <span className="font-mono font-bold text-[#172016]">
+                            {inspectingKYC.drivingLicense.vehicleClasses.join(", ")}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[#829280] text-[10px] block font-bold">Validity Expiry</span>
+                          <span className="font-medium text-[#172016]">{inspectingKYC.drivingLicense.expiryDate}</span>
+                        </div>
+                      </div>
+
+                      {/* LMV-NT Check */}
+                      <div
+                        className={`p-2.5 rounded-xl border flex items-start gap-2 text-[11px] ${
+                          inspectingKYC.drivingLicense.lmvEligible && !inspectingKYC.drivingLicense.isExpired
+                            ? "bg-emerald-50 border-emerald-200 text-emerald-900"
+                            : "bg-rose-50 border-rose-200 text-rose-900"
+                        }`}
+                      >
+                        {inspectingKYC.drivingLicense.lmvEligible && !inspectingKYC.drivingLicense.isExpired ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                            <span>
+                              <strong>LMV-NT Class Valid:</strong> Eligible to operate 4-wheel passenger fleet vehicles.
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" />
+                            <span>
+                              <strong>Invalid License:</strong> LMV class missing or license is expired.
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Secure Watermarked DL Media Card */}
+                <div className="p-4 rounded-2xl border border-[#E8EFE5] bg-[#F8FAF7] space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-xs font-bold text-[#172016]">
+                        DigiLocker Encrypted DL Card Artifact
+                      </h4>
+                      <p className="text-[11px] text-[#5C6B5A]">
+                        Stored securely in private Supabase bucket. Pre-signed access URL expires in 15 minutes.
+                      </p>
+                    </div>
+                    <span className="text-[10px] font-mono text-[#829280] bg-white px-2 py-1 rounded-md border border-[#E8EFE5]">
+                      SHA256 Encrypted
+                    </span>
+                  </div>
+
+                  <div className="relative h-44 rounded-xl overflow-hidden border border-[#CFD8CD] bg-stone-900 flex items-center justify-center group">
+                    <Image
+                      src={inspectingKYC.drivingLicense.documentUrl}
+                      alt="Driving License Document"
+                      fill
+                      className="object-cover opacity-80"
+                    />
+                    <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center p-4 text-center pointer-events-none">
+                      <Lock className="w-6 h-6 text-white/80 mb-1" />
+                      <span className="text-xs font-black tracking-widest text-white uppercase drop-shadow-md">
+                        HOMIE DRIVES AUDIT ONLY
+                      </span>
+                      <span className="text-[10px] text-white/70 font-mono mt-0.5">
+                        DO NOT DISTRIBUTE • VERIFIED VIA DIGILOCKER
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Administrative Risk & Notes Section */}
+                <div className="space-y-3 pt-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <label className="text-xs font-bold text-[#172016]">
+                      Administrative Risk Level Calibration
+                    </label>
+                    <div className="flex items-center gap-2">
+                      {(["low", "medium", "high"] as KYCRiskLevel[]).map((r) => (
+                        <button
+                          key={r}
+                          type="button"
+                          onClick={() => setSelectedRisk(r)}
+                          className={`px-3 py-1 rounded-lg text-xs font-bold capitalize transition-all cursor-pointer ${
+                            selectedRisk === r
+                              ? r === "low"
+                                ? "bg-emerald-600 text-white"
+                                : r === "medium"
+                                ? "bg-amber-600 text-white"
+                                : "bg-rose-600 text-white"
+                              : "bg-[#F3F6F1] text-[#5C6B5A] hover:bg-[#E8EFE5]"
+                          }`}
+                        >
+                          {r} Risk
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-[#172016] block mb-1">
+                      Verification Notes &amp; Audit Trail Justification
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={reviewNotes}
+                      onChange={(e) => setReviewNotes(e.target.value)}
+                      placeholder="Add compliance notes or specific re-upload reasons..."
+                      className="w-full px-3.5 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-medium text-[#172016] bg-white outline-hidden"
+                    />
+                  </div>
+
+                  {/* Feedback Banner */}
+                  {kycFeedback && (
+                    <div
+                      className={`p-3 rounded-xl text-xs font-semibold flex items-center gap-2 ${
+                        kycFeedback.type === "success"
+                          ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                          : "bg-red-50 text-red-800 border border-red-200"
+                      }`}
+                    >
+                      {kycFeedback.type === "success" ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      ) : (
+                        <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                      )}
+                      <span>{kycFeedback.message}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Modal Footer Controls */}
+              <div className="p-4 sm:p-5 bg-[#FAFBF9] border-t border-[#E8EFE5] flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleRequestReupload}
+                  disabled={isReviewingKYC}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-300 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isReviewingKYC ? "animate-spin" : ""}`} />
+                  <span>Request Re-upload</span>
+                </button>
+
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <button
+                    type="button"
+                    onClick={() => handleReviewKYC("flagged")}
+                    disabled={isReviewingKYC}
+                    className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-300 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    <Ban className="w-3.5 h-3.5" />
+                    <span>Flag / Decline</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleReviewKYC("verified")}
+                    disabled={isReviewingKYC}
+                    className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-5 py-2 rounded-xl text-xs font-extrabold bg-[#50644E] hover:bg-[#3D4D3B] text-white shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    {isReviewingKYC ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Updating...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Approve &amp; Verify Driver</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}

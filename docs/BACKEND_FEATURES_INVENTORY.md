@@ -127,7 +127,7 @@ These capabilities are system-level, non-configurable by standard customers, and
   - Supports physical DL card photo upload with in-browser Base64 preview and profile synchronization.
 * **Verification Status**: Verified in checkout drawer and customer profile.
 * **Admin Portal Candidate**:
-  - [ ] **Customer KYC Verification Queue**: Admin view to inspect customer uploaded DL photos, verify government credentials, and manually flag or approve high-risk drivers.
+  - [x] **Customer DigiLocker KYC Verification Queue**: Live in `/admin` to inspect DigiLocker verified profiles, verify 23+ age policy, review MoRTH Sarathi DL and masked UIDAI Aadhaar credentials, view watermarked private storage documents, and approve, flag, or request re-uploads with full audit logging.
 
 ---
 
@@ -162,10 +162,10 @@ The following upcoming backend features are internal system mechanisms that can 
 
 Based on the technical inventory above, the following three administrative additions are recommended for implementation:
 
-1. **Global Fee & Surge Configuration Engine**:
-   - Allow Master Admin to adjust GST percentage, platform fee %, and condition multipliers dynamically from `/admin` without code redeploys.
-2. **Customer KYC & Document Verification Queue**:
-   - Provide an administrative dashboard to review driver licenses, verify age, and inspect uploaded physical DL photos.
-3. **Master Escrow & Financial Settlement Ledger**:
+1. [x] **Global Fee & Surge Configuration Engine**:
+   - Allow Master Admin to adjust GST percentage, platform fee %, and condition multipliers dynamically from `/admin` without code redeploys. *(Implemented & Live in `/admin`)*
+2. [x] **Customer KYC & Document Verification Queue**:
+   - Provide an administrative dashboard to review driver licenses, verify age (23+ requirement), inspect uploaded physical DL photos via secure watermarked pre-signed URLs, calibrate risk levels, and approve or request re-uploads. *(Implemented & Live in `/admin`)*
+3. [ ] **Master Escrow & Financial Settlement Ledger**:
    - Provide executive oversight of all security deposits held, FASTag tolls deducted, and bank refunds pending disbursement.
 
