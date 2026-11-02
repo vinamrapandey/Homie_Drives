@@ -14,6 +14,8 @@ import { useAuth } from "@/lib/supabase/auth";
 import { useUserBookings, mapBookingToActivePass } from "@/lib/supabase/bookings";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { TaxInvoiceModal, InvoiceData } from "@/components/invoice/TaxInvoiceModal";
+import { FleetTelemetryDiagnosticsModal } from "@/components/common/FleetTelemetryDiagnosticsModal";
+import { DEMO_CARS } from "@/data/cars";
 import {
   Ticket,
   QrCode,
@@ -38,6 +40,7 @@ import {
   UserCheck,
   Receipt,
   FileText,
+  Activity,
 } from "lucide-react";
 
 export const PassTab: React.FC = () => {
@@ -60,6 +63,9 @@ export const PassTab: React.FC = () => {
 
   // GST Tax Invoice Modal
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
+
+  // Fleet Telematics Diagnostics Modal
+  const [isDiagnosticsModalOpen, setIsDiagnosticsModalOpen] = useState(false);
 
   // Copy to clipboard helper
   const handleCopy = (text: string, fieldName: string) => {
@@ -392,10 +398,13 @@ export const PassTab: React.FC = () => {
 
               {/* Live Telematics & FASTag Health Ribbon */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
-                {/* Fuel / Battery Gauge */}
-                <div className="bg-[#F8FAF7] p-3 rounded-xl border border-[#E8EFE5]">
+                {/* Fuel / Battery Gauge with Diagnostics Launcher */}
+                <div
+                  onClick={() => setIsDiagnosticsModalOpen(true)}
+                  className="bg-[#F8FAF7] hover:bg-[#F0F5EE] p-3 rounded-xl border border-[#E8EFE5] hover:border-[#CAD8C6] transition-all cursor-pointer group"
+                >
                   <div className="flex items-center justify-between text-[#5C6B5A] mb-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 group-hover:text-[#50644E]">
                       {activePass.fuelType.includes("Electric") ? (
                         <Zap className="w-3 h-3 text-emerald-600" />
                       ) : (
@@ -403,8 +412,9 @@ export const PassTab: React.FC = () => {
                       )}
                       {activePass.fuelType.includes("Electric") ? "State of Charge" : "Fuel Level"}
                     </span>
-                    <span className="font-bold text-[#172016]">
-                      {activePass.batteryOrFuelLevel}%
+                    <span className="font-bold text-[#172016] flex items-center gap-1">
+                      <span>{activePass.batteryOrFuelLevel}%</span>
+                      <Activity className="w-3 h-3 text-emerald-600 group-hover:scale-110 transition-transform" />
                     </span>
                   </div>
                   <div className="w-full bg-[#E8EFE5] h-1.5 rounded-full overflow-hidden">
@@ -417,9 +427,12 @@ export const PassTab: React.FC = () => {
                       style={{ width: `${activePass.batteryOrFuelLevel}%` }}
                     />
                   </div>
-                  <span className="text-[10px] text-[#829280] mt-1 block">
-                    Full-to-Full Policy
-                  </span>
+                  <div className="flex items-center justify-between text-[10px] text-[#829280] mt-1">
+                    <span>Full-to-Full Policy</span>
+                    <span className="text-emerald-700 font-semibold group-hover:underline">
+                      OBD Diagnostics →
+                    </span>
+                  </div>
                 </div>
 
                 {/* FASTag Buffer Balance */}
@@ -777,6 +790,18 @@ export const PassTab: React.FC = () => {
           paymentStatus: "Paid",
         }}
       />
+
+      {/* Fleet Telematics OBD Diagnostics Modal */}
+      {isDiagnosticsModalOpen && (
+        <FleetTelemetryDiagnosticsModal
+          car={
+            DEMO_CARS.find((c) => c.slug === activePass.carSlug) ||
+            DEMO_CARS[0]
+          }
+          isOpen={isDiagnosticsModalOpen}
+          onClose={() => setIsDiagnosticsModalOpen(false)}
+        />
+      )}
     </div>
   );
 };

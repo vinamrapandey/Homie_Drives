@@ -43,6 +43,18 @@ export interface TelematicsStatus {
   sanitizedTimeAgo: string;
   keylessReady: boolean;
   fastagActive: boolean;
+  tpmsPSI?: {
+    frontLeft: number;
+    frontRight: number;
+    rearLeft: number;
+    rearRight: number;
+  };
+  engineOilLifePercent?: number;
+  brakePadWearPercent?: number;
+  battery12vVoltage?: number;
+  coolantTempCelsius?: number;
+  odometerTamperCheck?: "passed" | "flagged";
+  gpsStatus?: "GPS NOT CONNECTED";
 }
 
 export interface Car {
