@@ -132,3 +132,4 @@ export const INITIAL_BOOKING_RECORDS: AdminBookingRecord[] = [
     },
   },
 ];
+

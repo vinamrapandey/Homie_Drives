@@ -322,33 +322,30 @@ export const CarDetailView: React.FC<CarDetailViewProps> = ({
               <button
                 type="button"
                 onClick={() => setRentalPlan("daily")}
-                className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all duration-200 cursor-pointer ${
-                  rentalPlan === "daily"
-                    ? "bg-[#50644E] text-white shadow-sm scale-[1.01]"
-                    : "text-[#5C6B5A] hover:text-[#172016] hover:bg-white/60"
-                }`}
+                className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all duration-200 cursor-pointer ${rentalPlan === "daily"
+                  ? "bg-[#50644E] text-white shadow-sm scale-[1.01]"
+                  : "text-[#5C6B5A] hover:text-[#172016] hover:bg-white/60"
+                  }`}
               >
                 Daily / Weekend
               </button>
               <button
                 type="button"
                 onClick={() => setRentalPlan("monthly")}
-                className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all duration-200 cursor-pointer ${
-                  rentalPlan === "monthly"
-                    ? "bg-[#50644E] text-white shadow-sm scale-[1.01]"
-                    : "text-[#5C6B5A] hover:text-[#172016] hover:bg-white/60"
-                }`}
+                className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all duration-200 cursor-pointer ${rentalPlan === "monthly"
+                  ? "bg-[#50644E] text-white shadow-sm scale-[1.01]"
+                  : "text-[#5C6B5A] hover:text-[#172016] hover:bg-white/60"
+                  }`}
               >
                 1 Month (-25%)
               </button>
               <button
                 type="button"
                 onClick={() => setRentalPlan("quarterly")}
-                className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all duration-200 cursor-pointer ${
-                  rentalPlan === "quarterly"
-                    ? "bg-[#50644E] text-white shadow-sm scale-[1.01]"
-                    : "text-[#5C6B5A] hover:text-[#172016] hover:bg-white/60"
-                }`}
+                className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all duration-200 cursor-pointer ${rentalPlan === "quarterly"
+                  ? "bg-[#50644E] text-white shadow-sm scale-[1.01]"
+                  : "text-[#5C6B5A] hover:text-[#172016] hover:bg-white/60"
+                  }`}
               >
                 3–6 Months Sub
               </button>

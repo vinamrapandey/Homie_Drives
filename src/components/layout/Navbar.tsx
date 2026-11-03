@@ -7,6 +7,7 @@ import { Logo } from "@/components/common/Logo";
 import { useHubLocations } from "@/lib/supabase/fleet";
 import { useAuth } from "@/lib/supabase/auth";
 import { AuthModal } from "@/components/auth/AuthModal";
+import { NotificationCenter } from "@/components/common/NotificationCenter";
 import { MapPin, ChevronDown, Check, User as UserIcon, Phone, MessageCircle } from "lucide-react";
 
 export const Navbar: React.FC = () => {
@@ -203,6 +204,9 @@ export const Navbar: React.FC = () => {
                 <span>Sign In</span>
               </button>
             )}
+
+            {/* Notification Center */}
+            <NotificationCenter variant="navbar" />
 
             <Link
               href="/plan?tab=cars"

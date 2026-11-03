@@ -14,8 +14,18 @@ import {
   updateVehicleDetailsAction,
   createVehicleAction,
 } from "@/actions/admin";
-import { updatePlatformSettingsAction } from "@/actions/platformSettings";
-import { DEFAULT_PLATFORM_SETTINGS, PlatformPricingSettings } from "@/data/platformSettings";
+import {
+  updatePlatformSettingsAction,
+  saveHolidayRuleAction,
+  toggleHolidayRuleAction,
+  deleteHolidayRuleAction,
+} from "@/actions/platformSettings";
+import {
+  DEFAULT_PLATFORM_SETTINGS,
+  PlatformPricingSettings,
+  HolidaySurgeRule,
+  INITIAL_HOLIDAY_RULES,
+} from "@/data/platformSettings";
 import { CustomerKYCRecord, KYCVerificationStatus, KYCRiskLevel } from "@/types/kyc";
 import { INITIAL_KYC_RECORDS } from "@/data/kycRecords";
 import { reviewCustomerKYCAction, requestKYCReuploadAction } from "@/actions/kyc";
@@ -31,6 +41,17 @@ import { refreshVehicleTelemetryAction } from "@/actions/telemetry";
 import { AdminBookingRecord, BookingLifecycleStatus } from "@/types/adminBooking";
 import { INITIAL_BOOKING_RECORDS } from "@/data/bookingRecords";
 import { advanceBookingLifecycleAction, emergencyCancelBookingAction } from "@/actions/adminBooking";
+import { HubAgentRecord, AgentShiftStatus, AgentCertificationTier } from "@/types/agent";
+import { INITIAL_HUB_AGENTS } from "@/data/agentRecords";
+import {
+  createHubAgentAction,
+  toggleAgentShiftStatusAction,
+  reassignAgentVehiclesAction,
+} from "@/actions/agentManagement";
+import { FastagTollEvent, TollPlazaDefinition } from "@/types/fastag";
+import { DELHI_NCR_TOLL_PLAZAS, INITIAL_FASTAG_EVENTS } from "@/data/fastagEvents";
+import { simulateFastagTollCrossingAction } from "@/actions/fastag";
+import { NotificationCenter } from "@/components/common/NotificationCenter";
 import { DELHI_NCR_LOCATIONS } from "@/data/locations";
 import { formatINR } from "@/lib/formatters";
 import { Car as CarType } from "@/types/car";
@@ -87,6 +108,11 @@ import {
   Play,
   Download,
   CalendarCheck,
+  Calendar,
+  Trash2,
+  UserPlus,
+  Award,
+  Radio,
   Unlock,
   ArrowRightCircle,
 } from "lucide-react";
@@ -239,6 +265,62 @@ export default function MasterAdminPortalPage() {
     type: "success" | "error";
     message: string;
   } | null>(null);
+
+  // NHAI FASTag Electronic Toll Plaza Simulator State
+  const [fastagEvents, setFastagEvents] = useState<FastagTollEvent[]>(INITIAL_FASTAG_EVENTS);
+  const [selectedBookingForToll, setSelectedBookingForToll] = useState<string>("HD-DEL-8921");
+  const [selectedPlazaId, setSelectedPlazaId] = useState<string>(DELHI_NCR_TOLL_PLAZAS[0].id);
+  const [isSimulatingToll, setIsSimulatingToll] = useState<boolean>(false);
+  const [tollFeedback, setTollFeedback] = useState<string | null>(null);
+
+  const handleSimulateTollCrossing = async () => {
+    setIsSimulatingToll(true);
+    setTollFeedback(null);
+
+    const booking =
+      INITIAL_BOOKING_RECORDS.find((b) => b.bookingCode === selectedBookingForToll) ||
+      INITIAL_BOOKING_RECORDS[0];
+    const plaza =
+      DELHI_NCR_TOLL_PLAZAS.find((p) => p.id === selectedPlazaId) ||
+      DELHI_NCR_TOLL_PLAZAS[0];
+
+    try {
+      const res = await simulateFastagTollCrossingAction({
+        bookingCode: booking.bookingCode,
+        vehicleRegistration: booking.registrationNumber,
+        vehicleName: booking.vehicleName,
+        plazaId: plaza.id,
+      });
+
+      if (res.success && res.event) {
+        setFastagEvents((prev) => [res.event!, ...prev]);
+        const matchingRef = booking.bookingCode.startsWith("#") ? booking.bookingCode : `#${booking.bookingCode}`;
+        setSettlementRecords((prev) =>
+          prev.map((s) => {
+            if (s.bookingRef === matchingRef || s.vehicleRegistration === booking.registrationNumber) {
+              const updatedTolls = s.fastagTollsINR + plaza.standardCarTollINR;
+              const updatedDeductions = s.totalDeductionsINR + plaza.standardCarTollINR;
+              return {
+                ...s,
+                fastagTollsINR: updatedTolls,
+                totalDeductionsINR: updatedDeductions,
+                netRefundINR: Math.max(0, s.depositHeldINR - updatedDeductions),
+              };
+            }
+            return s;
+          })
+        );
+        setTollFeedback(res.message || "Toll crossing registered");
+        setTimeout(() => setTollFeedback(null), 5000);
+      } else {
+        alert(res.error || "Simulation failed");
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Error executing toll crossing");
+    } finally {
+      setIsSimulatingToll(false);
+    }
+  };
 
   const totalEscrowCapitalHeld = settlementRecords
     .filter((s) => s.status === "held_in_escrow")
@@ -570,6 +652,88 @@ export default function MasterAdminPortalPage() {
     message: string;
   } | null>(null);
 
+  // Holiday Surge Rules State
+  const [holidayRules, setHolidayRules] = useState<HolidaySurgeRule[]>(INITIAL_HOLIDAY_RULES);
+  const [isHolidayModalOpen, setIsHolidayModalOpen] = useState(false);
+  const [editingHolidayRule, setEditingHolidayRule] = useState<HolidaySurgeRule | null>(null);
+  const [holidayForm, setHolidayForm] = useState({
+    name: "",
+    startDate: "",
+    endDate: "",
+    multiplier: 1.2,
+    isActive: true,
+    description: "",
+  });
+  const [holidayFeedback, setHolidayFeedback] = useState<string | null>(null);
+
+  const handleToggleHoliday = async (ruleId: string) => {
+    const res = await toggleHolidayRuleAction(ruleId);
+    if (res.success) {
+      setHolidayRules((prev) =>
+        prev.map((r) => (r.id === ruleId ? { ...r, isActive: !r.isActive } : r))
+      );
+    }
+  };
+
+  const handleDeleteHoliday = async (ruleId: string) => {
+    if (!window.confirm("Are you sure you want to remove this holiday surge rule?")) return;
+    const res = await deleteHolidayRuleAction(ruleId);
+    if (res.success) {
+      setHolidayRules((prev) => prev.filter((r) => r.id !== ruleId));
+    }
+  };
+
+  const handleOpenHolidayModal = (rule?: HolidaySurgeRule) => {
+    if (rule) {
+      setEditingHolidayRule(rule);
+      setHolidayForm({
+        name: rule.name,
+        startDate: rule.startDate,
+        endDate: rule.endDate,
+        multiplier: rule.multiplier,
+        isActive: rule.isActive,
+        description: rule.description,
+      });
+    } else {
+      setEditingHolidayRule(null);
+      setHolidayForm({
+        name: "",
+        startDate: new Date().toISOString().split("T")[0],
+        endDate: new Date(Date.now() + 86400000 * 3).toISOString().split("T")[0],
+        multiplier: 1.2,
+        isActive: true,
+        description: "Delhi NCR festival travel peak corridor.",
+      });
+    }
+    setIsHolidayModalOpen(true);
+  };
+
+  const handleSaveHolidayRule = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const res = await saveHolidayRuleAction({
+      id: editingHolidayRule?.id,
+      name: holidayForm.name,
+      startDate: holidayForm.startDate,
+      endDate: holidayForm.endDate,
+      multiplier: Number(holidayForm.multiplier),
+      isActive: holidayForm.isActive,
+      description: holidayForm.description,
+    });
+    if (res.success && res.rule) {
+      const savedRule = res.rule;
+      setHolidayRules((prev) => {
+        const exists = prev.some((r) => r.id === savedRule.id);
+        if (exists) {
+          return prev.map((r) => (r.id === savedRule.id ? savedRule : r));
+        }
+        return [savedRule, ...prev];
+      });
+      setIsHolidayModalOpen(false);
+      setHolidayFeedback(res.message || "Holiday surge rule saved successfully.");
+      setTimeout(() => setHolidayFeedback(null), 4000);
+    }
+  };
+
   const handleSavePlatformSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsUpdatingSettings(true);
@@ -587,6 +751,8 @@ export default function MasterAdminPortalPage() {
         surgeMultiplierCeiling: platformSettings.surgeMultiplierCeiling,
         surgeActive: platformSettings.surgeActive,
         surgeReason: platformSettings.surgeReason,
+        isWeekendSurgeEnabled: platformSettings.isWeekendSurgeEnabled,
+        weekendSurgeMultiplier: platformSettings.weekendSurgeMultiplier,
       });
 
       if (res.success) {
@@ -779,6 +945,90 @@ export default function MasterAdminPortalPage() {
       });
     } finally {
       setIsCreatingHub(false);
+    }
+  };
+
+  // Certified Hub Agent Management State
+  const [agents, setAgents] = useState<HubAgentRecord[]>(INITIAL_HUB_AGENTS);
+  const [agentSearch, setAgentSearch] = useState("");
+  const [agentShiftFilter, setAgentShiftFilter] = useState<"all" | AgentShiftStatus>("all");
+  const [isProvisionAgentModalOpen, setIsProvisionAgentModalOpen] = useState(false);
+  const [reassigningAgent, setReassigningAgent] = useState<HubAgentRecord | null>(null);
+  const [agentFeedback, setAgentFeedback] = useState<string | null>(null);
+
+  // Agent provision form state
+  const [agentForm, setAgentForm] = useState({
+    fullName: "",
+    badgeId: "",
+    phone: "",
+    email: "",
+    primaryHubId: DELHI_NCR_LOCATIONS[0].id,
+    primaryHubName: DELHI_NCR_LOCATIONS[0].name,
+    certificationTier: "Senior Specialist" as AgentCertificationTier,
+    assignedVehicleIds: [] as string[],
+    assignedVehicleNames: [] as string[],
+    shiftStatus: "on_duty" as AgentShiftStatus,
+    emergencyContact: "+91 98100 11111",
+  });
+
+  const handleToggleAgentShift = async (agentId: string, currentStatus: AgentShiftStatus) => {
+    const nextStatus: AgentShiftStatus =
+      currentStatus === "on_duty" ? "on_break" : currentStatus === "on_break" ? "off_duty" : "on_duty";
+    const res = await toggleAgentShiftStatusAction(agentId, nextStatus);
+    if (res.success && res.shiftStatus) {
+      setAgents((prev) =>
+        prev.map((a) => (a.id === agentId ? { ...a, shiftStatus: res.shiftStatus! } : a))
+      );
+      setAgentFeedback(res.message || "Shift status updated");
+      setTimeout(() => setAgentFeedback(null), 3000);
+    }
+  };
+
+  const handleOpenProvisionModal = () => {
+    const nextBadgeNum = 100 + agents.length + 1;
+    setAgentForm({
+      fullName: "",
+      badgeId: `HD-AGT-${nextBadgeNum}`,
+      phone: "+91 ",
+      email: "",
+      primaryHubId: DELHI_NCR_LOCATIONS[0].id,
+      primaryHubName: DELHI_NCR_LOCATIONS[0].name,
+      certificationTier: "Senior Specialist",
+      assignedVehicleIds: [],
+      assignedVehicleNames: [],
+      shiftStatus: "on_duty",
+      emergencyContact: "+91 98100 11111",
+    });
+    setIsProvisionAgentModalOpen(true);
+  };
+
+  const handleSaveProvisionAgent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const res = await createHubAgentAction(agentForm);
+    if (res.success && res.agent) {
+      setAgents((prev) => [res.agent!, ...prev]);
+      setIsProvisionAgentModalOpen(false);
+      setAgentFeedback(res.message || "Agent provisioned successfully.");
+      setTimeout(() => setAgentFeedback(null), 4000);
+    } else {
+      alert(res.error || "Failed to provision agent");
+    }
+  };
+
+  const handleSaveVehicleReassignment = async (vehicleIds: string[], vehicleNames: string[]) => {
+    if (!reassigningAgent) return;
+    const res = await reassignAgentVehiclesAction(reassigningAgent.id, vehicleIds, vehicleNames);
+    if (res.success) {
+      setAgents((prev) =>
+        prev.map((a) =>
+          a.id === reassigningAgent.id
+            ? { ...a, assignedVehicleIds: vehicleIds, assignedVehicleNames: vehicleNames }
+            : a
+        )
+      );
+      setReassigningAgent(null);
+      setAgentFeedback(res.message || "Vehicle roster updated");
+      setTimeout(() => setAgentFeedback(null), 3000);
     }
   };
 
@@ -1226,7 +1476,8 @@ export default function MasterAdminPortalPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
+            <NotificationCenter variant="dark" />
             <Link
               href="/"
               className="text-xs font-semibold text-white/70 hover:text-white px-3 py-1.5 rounded-xl hover:bg-white/10 transition-colors"
@@ -2409,6 +2660,73 @@ export default function MasterAdminPortalPage() {
                       </div>
                     </div>
                   )}
+
+                  {/* Weekend Automated Surge */}
+                  <div className="pt-3 border-t border-[#E8EFE5] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <CalendarCheck className="w-4 h-4 text-[#50644E]" />
+                        <strong className="text-xs font-bold text-[#172016]">
+                          Automated Weekend Leisure Surge (Fri 18:00 – Sun 23:59)
+                        </strong>
+                      </div>
+                      <p className="text-[11px] text-[#5C6B5A] mt-0.5">
+                        Automatically adjusts base rates for Friday evening through Sunday leisure bookings departing Delhi NCR.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      {platformSettings.isWeekendSurgeEnabled && (
+                        <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-xl border border-[#CFD8CD]">
+                          <span className="text-[11px] font-bold text-[#5C6B5A]">Multiplier:</span>
+                          <input
+                            type="number"
+                            min={1.05}
+                            max={1.5}
+                            step={0.05}
+                            value={platformSettings.weekendSurgeMultiplier}
+                            onChange={(e) =>
+                              setPlatformSettings({
+                                ...platformSettings,
+                                weekendSurgeMultiplier: Number(e.target.value),
+                              })
+                            }
+                            className="w-14 text-xs font-mono font-bold text-[#172016] focus:outline-hidden"
+                          />
+                          <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded-sm">
+                            +{Math.round((platformSettings.weekendSurgeMultiplier - 1) * 100)}%
+                          </span>
+                        </div>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPlatformSettings({
+                            ...platformSettings,
+                            isWeekendSurgeEnabled: !platformSettings.isWeekendSurgeEnabled,
+                          })
+                        }
+                        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          platformSettings.isWeekendSurgeEnabled
+                            ? "bg-[#50644E] text-white shadow-xs"
+                            : "bg-white text-[#5C6B5A] border border-[#CFD8CD] hover:bg-[#F3F6F1]"
+                        }`}
+                      >
+                        {platformSettings.isWeekendSurgeEnabled ? (
+                          <>
+                            <ToggleRight className="w-4 h-4" />
+                            <span>Weekend Surge ON</span>
+                          </>
+                        ) : (
+                          <>
+                            <ToggleLeft className="w-4 h-4" />
+                            <span>Weekend Surge OFF</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -2451,6 +2769,140 @@ export default function MasterAdminPortalPage() {
                 </button>
               </div>
             </form>
+
+            {/* Indian Holiday & Peak Festival Calendar Corridor */}
+            <div className="mt-8 pt-6 border-t border-[#F0F4ED] space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-[#50644E]" />
+                    <h3 className="text-sm font-bold text-[#172016]">
+                      Indian Holiday &amp; Festival Peak Calendar Scheduler
+                    </h3>
+                  </div>
+                  <p className="text-xs text-[#5C6B5A] mt-0.5">
+                    Pre-program scheduled surge rates for long weekends and major festival corridors (Diwali, New Year, Holi). The booking engine applies these rates automatically when reservation dates overlap.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleOpenHolidayModal()}
+                  className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#50644E] hover:bg-[#3D4D3B] text-white text-xs font-bold shadow-xs transition-all cursor-pointer shrink-0"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Schedule Holiday Surge</span>
+                </button>
+              </div>
+
+              {holidayFeedback && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-semibold flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>{holidayFeedback}</span>
+                </div>
+              )}
+
+              {/* Holiday Rules Cards Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {holidayRules.map((rule) => {
+                  const startDate = new Date(rule.startDate);
+                  const endDate = new Date(rule.endDate);
+                  const days = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                  const isCurrent = Date.now() >= startDate.getTime() && Date.now() <= endDate.getTime();
+
+                  return (
+                    <div
+                      key={rule.id}
+                      className={`p-4 rounded-2xl border transition-all ${
+                        rule.isActive
+                          ? isCurrent
+                            ? "bg-amber-50/60 border-amber-300 shadow-xs"
+                            : "bg-[#F8FAF7] border-[#E8EFE5]"
+                          : "bg-[#F3F4F1]/60 border-[#DFE5DC] opacity-75"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-xs text-[#172016]">
+                              {rule.name}
+                            </span>
+                            {isCurrent && rule.isActive && (
+                              <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-amber-500 text-white animate-pulse">
+                                Live Now
+                              </span>
+                            )}
+                            <span
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                rule.isActive
+                                  ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                                  : "bg-gray-200 text-gray-700"
+                              }`}
+                            >
+                              {rule.isActive ? "Active" : "Disabled"}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-[#5C6B5A] line-clamp-2">
+                            {rule.description}
+                          </p>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <div className="text-sm font-black text-[#172016] font-mono">
+                            {rule.multiplier}x
+                          </div>
+                          <div className="text-[10px] font-bold text-emerald-700">
+                            +{Math.round((rule.multiplier - 1) * 100)}% Surge
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 pt-3 border-t border-[#E8EFE5] flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2 text-[#5C6B5A]">
+                          <Clock className="w-3.5 h-3.5 text-[#829280]" />
+                          <span className="font-mono text-[11px]">
+                            {rule.startDate} &rarr; {rule.endDate}
+                          </span>
+                          <span className="text-[10px] font-bold bg-white px-2 py-0.5 rounded-md border border-[#E0E7DC]">
+                            {days} Days
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleHoliday(rule.id)}
+                            className="p-1.5 hover:bg-white rounded-lg text-[#5C6B5A] hover:text-[#172016] border border-transparent hover:border-[#CFD8CD] transition-all cursor-pointer"
+                            title={rule.isActive ? "Disable Rule" : "Activate Rule"}
+                          >
+                            {rule.isActive ? (
+                              <ToggleRight className="w-4 h-4 text-emerald-700" />
+                            ) : (
+                              <ToggleLeft className="w-4 h-4 text-[#829280]" />
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenHolidayModal(rule)}
+                            className="p-1.5 hover:bg-white rounded-lg text-[#5C6B5A] hover:text-[#172016] border border-transparent hover:border-[#CFD8CD] transition-all cursor-pointer"
+                            title="Edit Rule"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteHoliday(rule.id)}
+                            className="p-1.5 hover:bg-red-50 rounded-lg text-[#829280] hover:text-red-700 border border-transparent hover:border-red-200 transition-all cursor-pointer"
+                            title="Delete Rule"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         )}
 
@@ -2755,6 +3207,179 @@ export default function MasterAdminPortalPage() {
                 </p>
               </div>
             )}
+
+            {/* NHAI FASTag Electronic Toll Plaza Simulator & Webhook Inspector */}
+            <div className="p-6 sm:p-7 border-t border-[#E8EFE5] bg-[#FAFBF9] space-y-6">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#E8EFE5]">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Radio className="w-5 h-5 text-[#50644E] animate-pulse" />
+                    <h3 className="text-base font-bold text-[#172016]">
+                      NHAI / NETC FASTag Electronic Toll Plaza Simulator &amp; Webhook Inspector
+                    </h3>
+                  </div>
+                  <p className="text-xs text-[#5C6B5A] mt-0.5">
+                    Simulate real-time RFID highway toll collection barrier crossings across Delhi NCR expressways (Yamuna, Delhi-Meerut, NH-48). Directly debits the customer's ₹1,000 FASTag escrow buffer.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 text-xs font-mono text-[#5C6B5A] bg-white px-3 py-1.5 rounded-xl border border-[#CFD8CD] shrink-0">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                  <span>NETC Webhook: CONNECTED</span>
+                </div>
+              </div>
+
+              {/* Toll Simulation Controls */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white p-4 sm:p-5 rounded-2xl border border-[#E8EFE5] shadow-xs">
+                {/* Select Active Booking & Vehicle */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-[#172016] flex items-center justify-between">
+                    <span>Active Vehicle / Booking</span>
+                    <span className="text-[10px] text-[#5C6B5A]">In Transit</span>
+                  </label>
+                  <select
+                    value={selectedBookingForToll}
+                    onChange={(e) => setSelectedBookingForToll(e.target.value)}
+                    className="w-full px-3 py-2 bg-[#F8FAF7] rounded-xl border border-[#CFD8CD] text-xs font-semibold text-[#172016] focus:outline-hidden cursor-pointer"
+                  >
+                    {INITIAL_BOOKING_RECORDS.map((b) => (
+                      <option key={b.id} value={b.bookingCode}>
+                        {b.bookingCode} • {b.vehicleName} ({b.registrationNumber})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Select Expressway Toll Plaza */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-[#172016] flex items-center justify-between">
+                    <span>Delhi NCR Toll Plaza</span>
+                    <span className="text-[10px] text-emerald-700 font-bold">
+                      ₹{DELHI_NCR_TOLL_PLAZAS.find((p) => p.id === selectedPlazaId)?.standardCarTollINR} Fee
+                    </span>
+                  </label>
+                  <select
+                    value={selectedPlazaId}
+                    onChange={(e) => setSelectedPlazaId(e.target.value)}
+                    className="w-full px-3 py-2 bg-[#F8FAF7] rounded-xl border border-[#CFD8CD] text-xs font-semibold text-[#172016] focus:outline-hidden cursor-pointer"
+                  >
+                    {DELHI_NCR_TOLL_PLAZAS.map((plaza) => (
+                      <option key={plaza.id} value={plaza.id}>
+                        {plaza.name} (₹{plaza.standardCarTollINR}) — {plaza.corridor}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Trigger Button */}
+                <div className="flex flex-col justify-end">
+                  <button
+                    type="button"
+                    onClick={handleSimulateTollCrossing}
+                    disabled={isSimulatingToll}
+                    className="w-full py-2.5 px-4 rounded-xl bg-[#50644E] hover:bg-[#3D4D3B] text-white text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    {isSimulatingToll ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Simulating RFID Crossing...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="w-3.5 h-3.5 text-amber-300" />
+                        <span>Inject Real-Time Toll Crossing</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Feedback Alert */}
+              {tollFeedback && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-semibold flex items-center gap-2 animate-in fade-in">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>{tollFeedback}</span>
+                </div>
+              )}
+
+              {/* Recent Toll Crossing Webhook Event Stream */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-[#5C6B5A] flex items-center gap-2">
+                    <Activity className="w-3.5 h-3.5 text-[#50644E]" />
+                    Live NETC FASTag Event Stream ({fastagEvents.length} events logged)
+                  </span>
+                  <span className="text-[10px] text-[#829280]">
+                    Auto-debited from ₹1,000 FASTag preload buffer
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto rounded-2xl border border-[#E8EFE5] bg-white shadow-xs">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-[#F8FAF7] border-b border-[#E8EFE5] text-[#5C6B5A] uppercase text-[10px] font-bold">
+                      <tr>
+                        <th className="px-4 py-3">Event / Reader ID</th>
+                        <th className="px-4 py-3">Booking &amp; Vehicle</th>
+                        <th className="px-4 py-3">Plaza &amp; Corridor</th>
+                        <th className="px-4 py-3">Lane ID</th>
+                        <th className="px-4 py-3">Toll Amount</th>
+                        <th className="px-4 py-3">Buffer Remaining</th>
+                        <th className="px-4 py-3">Timestamp</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#F0F4ED]">
+                      {fastagEvents.slice(0, 8).map((evt) => (
+                        <tr key={evt.id} className="hover:bg-[#F9FAF8] transition-colors">
+                          <td className="px-4 py-3">
+                            <span className="font-mono font-bold text-[#172016] block">
+                              {evt.id}
+                            </span>
+                            <span className="text-[10px] text-[#829280] font-mono">
+                              {evt.readerId}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <strong className="text-[#172016] block">{evt.bookingCode}</strong>
+                            <span className="text-[11px] text-[#5C6B5A]">
+                              {evt.vehicleName} ({evt.vehicleRegistration})
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <strong className="text-[#172016] block">{evt.plazaName}</strong>
+                            <span className="text-[11px] text-[#5C6B5A] line-clamp-1">
+                              {evt.corridor}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="font-mono text-[11px] bg-[#F3F6F1] px-2 py-0.5 rounded text-[#5C6B5A] border border-[#E0E7DC]">
+                              {evt.laneId}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="font-black text-[#172016] font-mono text-xs">
+                              ₹{evt.tollAmountINR}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={`font-mono font-bold text-xs px-2 py-0.5 rounded-full ${
+                                evt.balanceRemainingINR < 200
+                                  ? "bg-rose-100 text-rose-800 border border-rose-200"
+                                  : "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                              }`}
+                            >
+                              ₹{evt.balanceRemainingINR}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-[11px] text-[#829280] font-mono whitespace-nowrap">
+                            {evt.timestamp}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -3532,39 +4157,311 @@ export default function MasterAdminPortalPage() {
           </div>
         )}
 
-        {/* TAB 3: AGENTS & HUBS */}
+        {/* TAB 3: CERTIFIED HUB AGENTS & FLEET ROSTER */}
         {activeTab === "agents" && (
-          <div className="bg-white rounded-3xl border border-[#E8EFE5] shadow-homie overflow-hidden p-6 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-[#F0F4ED]">
-              <div>
-                <h2 className="text-lg font-bold text-[#172016]">Operational Hub Staff &amp; Roles</h2>
-                <p className="text-xs text-[#5C6B5A]">
-                  Certified staff governed under Delhi NCR hub operations.
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-              <div className="p-4 bg-[#F8FAF7] border border-[#E8EFE5] rounded-2xl space-y-2">
-                <div className="flex items-center justify-between">
-                  <strong className="text-sm font-bold text-[#172016]">Kabir Mehta</strong>
-                  <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">
-                    Active Agent
-                  </span>
+          <div className="space-y-6">
+            {/* Header with Operational KPIs */}
+            <div className="bg-white rounded-3xl border border-[#E8EFE5] shadow-homie overflow-hidden p-6 sm:p-7 space-y-6">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-[#F0F4ED]">
+                <div>
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-[#EAF0E7] flex items-center justify-center text-[#50644E]">
+                      <Users className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-bold text-[#172016]">
+                        Certified Hub Agents &amp; Fleet Roster Manager
+                      </h2>
+                      <p className="text-xs text-[#5C6B5A]">
+                        Provision verified handover specialists, manage active shifts, and govern vehicle custodial responsibilities across Delhi NCR.
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <p className="text-[#5C6B5A]">Code: HD-AGT-0104 • Primary Hub: Aerocity Hub (IGI Airport)</p>
-                <p className="text-[#829280]">Assigned to: Toyota Innova HyCross ZX, Aston Martin Vantage V8</p>
+
+                <button
+                  type="button"
+                  onClick={handleOpenProvisionModal}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#50644E] hover:bg-[#3D4D3B] text-white text-xs font-bold shadow-xs transition-all cursor-pointer shrink-0 self-start md:self-auto"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span>Provision Certified Agent</span>
+                </button>
               </div>
 
-              <div className="p-4 bg-[#F8FAF7] border border-[#E8EFE5] rounded-2xl space-y-2">
-                <div className="flex items-center justify-between">
-                  <strong className="text-sm font-bold text-[#172016]">Dev Sharma</strong>
-                  <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">
-                    Active Agent
+              {/* KPI Strip */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+                <div className="p-4 bg-[#F8FAF7] rounded-2xl border border-[#E8EFE5] space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#5C6B5A]">
+                    Total Certified Staff
                   </span>
+                  <div className="text-2xl font-black text-[#172016] font-mono">
+                    {agents.length}
+                  </div>
+                  <span className="text-[10px] text-[#829280] block">Across 5 Delhi NCR Hubs</span>
                 </div>
-                <p className="text-[#5C6B5A]">Code: HD-AGT-0208 • Primary Hub: Cyber Hub DLF Phase 2, Gurugram</p>
-                <p className="text-[#829280]">Assigned to: Mahindra Thar Roxx 4x4, Mahindra Scorpio-N 4Xplor</p>
+
+                <div className="p-4 bg-emerald-50/60 rounded-2xl border border-emerald-200/80 space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
+                    Active On Duty
+                  </span>
+                  <div className="text-2xl font-black text-emerald-900 font-mono flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                    {agents.filter((a) => a.shiftStatus === "on_duty").length}
+                  </div>
+                  <span className="text-[10px] text-emerald-700 block">Ready for Customer Handover</span>
+                </div>
+
+                <div className="p-4 bg-blue-50/60 rounded-2xl border border-blue-200/80 space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-blue-800">
+                    Assigned Vehicles
+                  </span>
+                  <div className="text-2xl font-black text-blue-900 font-mono">
+                    {agents.reduce((acc, a) => acc + a.assignedVehicleIds.length, 0)}
+                  </div>
+                  <span className="text-[10px] text-blue-700 block">In Agent Custody</span>
+                </div>
+
+                <div className="p-4 bg-amber-50/60 rounded-2xl border border-amber-200/80 space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800">
+                    Operational CSAT
+                  </span>
+                  <div className="text-2xl font-black text-amber-900 font-mono">
+                    {(agents.reduce((acc, a) => acc + a.rating, 0) / (agents.length || 1)).toFixed(2)} ★
+                  </div>
+                  <span className="text-[10px] text-amber-700 block">Avg Customer Rating</span>
+                </div>
+              </div>
+
+              {/* Feedback Alert */}
+              {agentFeedback && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-semibold flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>{agentFeedback}</span>
+                </div>
+              )}
+
+              {/* Filter and Search Bar */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar w-full sm:w-auto">
+                  <button
+                    type="button"
+                    onClick={() => setAgentShiftFilter("all")}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                      agentShiftFilter === "all"
+                        ? "bg-[#50644E] text-white shadow-xs"
+                        : "bg-white text-[#5C6B5A] hover:bg-[#F0F4ED] border border-[#E8EFE5]"
+                    }`}
+                  >
+                    All Staff ({agents.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAgentShiftFilter("on_duty")}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                      agentShiftFilter === "on_duty"
+                        ? "bg-emerald-600 text-white shadow-xs"
+                        : "bg-white text-[#5C6B5A] hover:bg-[#F0F4ED] border border-[#E8EFE5]"
+                    }`}
+                  >
+                    <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                    On Duty ({agents.filter((a) => a.shiftStatus === "on_duty").length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAgentShiftFilter("on_break")}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                      agentShiftFilter === "on_break"
+                        ? "bg-amber-600 text-white shadow-xs"
+                        : "bg-white text-[#5C6B5A] hover:bg-[#F0F4ED] border border-[#E8EFE5]"
+                    }`}
+                  >
+                    <span className="w-2 h-2 rounded-full bg-amber-400" />
+                    On Break ({agents.filter((a) => a.shiftStatus === "on_break").length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAgentShiftFilter("off_duty")}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                      agentShiftFilter === "off_duty"
+                        ? "bg-gray-700 text-white shadow-xs"
+                        : "bg-white text-[#5C6B5A] hover:bg-[#F0F4ED] border border-[#E8EFE5]"
+                    }`}
+                  >
+                    <span className="w-2 h-2 rounded-full bg-gray-400" />
+                    Off Duty ({agents.filter((a) => a.shiftStatus === "off_duty").length})
+                  </button>
+                </div>
+
+                <div className="relative w-full sm:w-72">
+                  <Search className="w-4 h-4 text-[#829280] absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={agentSearch}
+                    onChange={(e) => setAgentSearch(e.target.value)}
+                    placeholder="Search by name, badge, hub..."
+                    className="w-full pl-9 pr-3 py-1.5 bg-[#F8FAF7] border border-[#CFD8CD] rounded-xl text-xs font-medium text-[#172016] focus:outline-hidden"
+                  />
+                </div>
+              </div>
+
+              {/* Agents Roster Cards Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {agents
+                  .filter((agent) => {
+                    if (agentShiftFilter !== "all" && agent.shiftStatus !== agentShiftFilter) return false;
+                    if (agentSearch.trim()) {
+                      const query = agentSearch.toLowerCase();
+                      const matchName = agent.fullName.toLowerCase().includes(query);
+                      const matchBadge = agent.badgeId.toLowerCase().includes(query);
+                      const matchHub = agent.primaryHubName.toLowerCase().includes(query);
+                      const matchCar = agent.assignedVehicleNames.some((c) => c.toLowerCase().includes(query));
+                      return matchName || matchBadge || matchHub || matchCar;
+                    }
+                    return true;
+                  })
+                  .map((agent) => {
+                    const initials = agent.fullName
+                      .split(" ")
+                      .map((n) => n[0])
+                      .join("")
+                      .toUpperCase();
+
+                    return (
+                      <div
+                        key={agent.id}
+                        className="p-5 bg-[#F8FAF7] border border-[#E8EFE5] rounded-3xl hover:border-[#CFD8CD] transition-all space-y-4 shadow-xs"
+                      >
+                        {/* Top: Identity & Shift Status */}
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-11 h-11 rounded-2xl bg-[#50644E] text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
+                              {initials}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h3 className="font-bold text-sm text-[#172016]">
+                                  {agent.fullName}
+                                </h3>
+                                <span className="font-mono text-[10px] font-extrabold bg-white text-[#5C6B5A] px-2 py-0.5 rounded-md border border-[#CFD8CD]">
+                                  {agent.badgeId}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <Award className="w-3.5 h-3.5 text-amber-600" />
+                                <span className="text-[11px] font-semibold text-[#5C6B5A]">
+                                  {agent.certificationTier}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Clickable Shift Status Button */}
+                          <button
+                            type="button"
+                            onClick={() => handleToggleAgentShift(agent.id, agent.shiftStatus)}
+                            title="Click to advance shift status (On Duty -> On Break -> Off Duty)"
+                            className={`px-3 py-1 rounded-full text-[10px] font-bold tracking-wide uppercase flex items-center gap-1.5 transition-all cursor-pointer ${
+                              agent.shiftStatus === "on_duty"
+                                ? "bg-emerald-100 text-emerald-800 border border-emerald-200 hover:bg-emerald-200"
+                                : agent.shiftStatus === "on_break"
+                                ? "bg-amber-100 text-amber-800 border border-amber-200 hover:bg-amber-200"
+                                : "bg-gray-200 text-gray-700 border border-gray-300 hover:bg-gray-300"
+                            }`}
+                          >
+                            <span
+                              className={`w-2 h-2 rounded-full ${
+                                agent.shiftStatus === "on_duty"
+                                  ? "bg-emerald-500 animate-pulse"
+                                  : agent.shiftStatus === "on_break"
+                                  ? "bg-amber-500"
+                                  : "bg-gray-400"
+                              }`}
+                            />
+                            <span>
+                              {agent.shiftStatus === "on_duty"
+                                ? "On Duty"
+                                : agent.shiftStatus === "on_break"
+                                ? "On Break"
+                                : "Off Duty"}
+                            </span>
+                          </button>
+                        </div>
+
+                        {/* Stationed Hub & Contact */}
+                        <div className="p-3 bg-white rounded-2xl border border-[#E8EFE5] space-y-1.5 text-xs">
+                          <div className="flex items-center gap-1.5 text-[#172016] font-medium">
+                            <MapPin className="w-3.5 h-3.5 text-[#50644E] shrink-0" />
+                            <span className="truncate">{agent.primaryHubName}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[11px] text-[#5C6B5A] pt-1 border-t border-[#F0F4ED]">
+                            <span className="flex items-center gap-1">
+                              <Phone className="w-3 h-3 text-[#829280]" />
+                              {agent.phone}
+                            </span>
+                            <span className="font-mono text-[#829280]">
+                              {agent.email}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Metrics Bar */}
+                        <div className="grid grid-cols-3 gap-2 text-center">
+                          <div className="bg-white p-2 rounded-xl border border-[#E8EFE5]">
+                            <span className="text-[10px] text-[#829280] block">Handovers</span>
+                            <strong className="text-xs font-mono font-bold text-[#172016]">
+                              {agent.handoverCount}
+                            </strong>
+                          </div>
+                          <div className="bg-white p-2 rounded-xl border border-[#E8EFE5]">
+                            <span className="text-[10px] text-[#829280] block">Rating</span>
+                            <strong className="text-xs font-mono font-bold text-amber-700">
+                              {agent.rating} ★
+                            </strong>
+                          </div>
+                          <div className="bg-white p-2 rounded-xl border border-[#E8EFE5]">
+                            <span className="text-[10px] text-[#829280] block">Stationed</span>
+                            <strong className="text-xs font-mono font-bold text-[#172016]">
+                              {agent.joinedDate.substring(0, 7)}
+                            </strong>
+                          </div>
+                        </div>
+
+                        {/* Assigned Fleet Vehicles */}
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-[#5C6B5A] flex items-center gap-1">
+                              <Car className="w-3.5 h-3.5 text-[#50644E]" />
+                              Assigned Fleet Roster ({agent.assignedVehicleNames.length})
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setReassigningAgent(agent)}
+                              className="text-[11px] font-bold text-[#50644E] hover:underline cursor-pointer"
+                            >
+                              Reassign
+                            </button>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {agent.assignedVehicleNames.length > 0 ? (
+                              agent.assignedVehicleNames.map((name, idx) => (
+                                <span
+                                  key={idx}
+                                  className="text-[10px] font-semibold bg-white text-[#172016] px-2.5 py-1 rounded-lg border border-[#CFD8CD]"
+                                >
+                                  {name}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-[11px] text-[#829280] italic">
+                                No vehicles currently assigned
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
               </div>
             </div>
           </div>
@@ -6118,6 +7015,413 @@ export default function MasterAdminPortalPage() {
                   className="px-4 py-2 rounded-xl text-xs font-bold text-[#5C6B5A] hover:bg-[#F3F6F1] transition-colors cursor-pointer"
                 >
                   Close Video
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Holiday Surge Scheduler Modal */}
+        {isHolidayModalOpen && (
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-[#E8EFE5] space-y-5 animate-in fade-in zoom-in-95 duration-150">
+              <div className="flex items-center justify-between pb-3 border-b border-[#F0F4ED]">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-[#50644E]" />
+                  <h3 className="font-bold text-[#172016] text-sm">
+                    {editingHolidayRule ? "Edit Holiday Surge Window" : "Schedule Holiday Surge Window"}
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsHolidayModalOpen(false)}
+                  className="p-1 rounded-xl hover:bg-[#F3F6F1] text-[#5C6B5A] cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveHolidayRule} className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-[#172016]">
+                    Holiday / Peak Event Title
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={holidayForm.name}
+                    onChange={(e) => setHolidayForm({ ...holidayForm, name: e.target.value })}
+                    placeholder="e.g. Diwali Festive Golden Corridor"
+                    className="w-full px-3 py-2 bg-white rounded-xl border border-[#CFD8CD] text-xs font-semibold text-[#172016] focus:outline-hidden"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">
+                      Start Date
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={holidayForm.startDate}
+                      onChange={(e) => setHolidayForm({ ...holidayForm, startDate: e.target.value })}
+                      className="w-full px-3 py-2 bg-white rounded-xl border border-[#CFD8CD] text-xs font-semibold text-[#172016] focus:outline-hidden"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">
+                      End Date
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={holidayForm.endDate}
+                      onChange={(e) => setHolidayForm({ ...holidayForm, endDate: e.target.value })}
+                      className="w-full px-3 py-2 bg-white rounded-xl border border-[#CFD8CD] text-xs font-semibold text-[#172016] focus:outline-hidden"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-[#172016]">
+                      Surge Multiplier
+                    </label>
+                    <span className="text-xs font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
+                      +{Math.round((holidayForm.multiplier - 1) * 100)}% Surge ({holidayForm.multiplier}x)
+                    </span>
+                  </div>
+                  <input
+                    type="number"
+                    min={1.05}
+                    max={2.0}
+                    step={0.05}
+                    required
+                    value={holidayForm.multiplier}
+                    onChange={(e) => setHolidayForm({ ...holidayForm, multiplier: Number(e.target.value) })}
+                    className="w-full px-3 py-2 bg-white rounded-xl border border-[#CFD8CD] text-xs font-mono font-bold text-[#172016] focus:outline-hidden"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-[#172016]">
+                    Operational Corridor Note
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={holidayForm.description}
+                    onChange={(e) => setHolidayForm({ ...holidayForm, description: e.target.value })}
+                    placeholder="e.g. Outbound highway rush to Jaipur and Agra."
+                    className="w-full px-3 py-2 bg-white rounded-xl border border-[#CFD8CD] text-xs font-medium text-[#172016] focus:outline-hidden resize-none"
+                  />
+                </div>
+
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={holidayForm.isActive}
+                    onChange={(e) => setHolidayForm({ ...holidayForm, isActive: e.target.checked })}
+                    className="w-4 h-4 rounded text-[#50644E] focus:ring-[#50644E]"
+                  />
+                  <span className="text-xs font-bold text-[#172016]">
+                    Activate this surge window immediately
+                  </span>
+                </label>
+
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#F0F4ED]">
+                  <button
+                    type="button"
+                    onClick={() => setIsHolidayModalOpen(false)}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-[#5C6B5A] hover:bg-[#F3F6F1] cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 rounded-xl bg-[#50644E] hover:bg-[#3D4D3B] text-white text-xs font-extrabold shadow-xs cursor-pointer"
+                  >
+                    Save Surge Rule
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Provision Certified Hub Agent Modal */}
+        {isProvisionAgentModalOpen && (
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-[#E8EFE5] space-y-5 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between pb-3 border-b border-[#F0F4ED]">
+                <div className="flex items-center gap-2">
+                  <UserPlus className="w-5 h-5 text-[#50644E]" />
+                  <h3 className="font-bold text-[#172016] text-sm">
+                    Provision Certified Hub Agent
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsProvisionAgentModalOpen(false)}
+                  className="p-1 rounded-xl hover:bg-[#F3F6F1] text-[#5C6B5A] cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveProvisionAgent} className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">
+                      Full Name
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Vikram Singhania"
+                      value={agentForm.fullName}
+                      onChange={(e) => setAgentForm({ ...agentForm, fullName: e.target.value })}
+                      className="w-full px-3 py-2 bg-white rounded-xl border border-[#CFD8CD] text-xs font-semibold text-[#172016] focus:outline-hidden"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">
+                      Badge ID
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. HD-AGT-106"
+                      value={agentForm.badgeId}
+                      onChange={(e) => setAgentForm({ ...agentForm, badgeId: e.target.value })}
+                      className="w-full px-3 py-2 bg-white rounded-xl border border-[#CFD8CD] text-xs font-mono font-bold text-[#172016] focus:outline-hidden uppercase"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">
+                      Phone Number (+91)
+                    </label>
+                    <input
+                      type="tel"
+                      required
+                      placeholder="+91 98111 22334"
+                      value={agentForm.phone}
+                      onChange={(e) => setAgentForm({ ...agentForm, phone: e.target.value })}
+                      className="w-full px-3 py-2 bg-white rounded-xl border border-[#CFD8CD] text-xs font-semibold text-[#172016] focus:outline-hidden"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">
+                      Corporate Email
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="vikram@homiedrives.in"
+                      value={agentForm.email}
+                      onChange={(e) => setAgentForm({ ...agentForm, email: e.target.value })}
+                      className="w-full px-3 py-2 bg-white rounded-xl border border-[#CFD8CD] text-xs font-semibold text-[#172016] focus:outline-hidden"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">
+                      Primary Hub Assignment
+                    </label>
+                    <select
+                      value={agentForm.primaryHubId}
+                      onChange={(e) => {
+                        const selectedHub = DELHI_NCR_LOCATIONS.find((h) => h.id === e.target.value);
+                        setAgentForm({
+                          ...agentForm,
+                          primaryHubId: e.target.value,
+                          primaryHubName: selectedHub ? selectedHub.name : e.target.value,
+                        });
+                      }}
+                      className="w-full px-3 py-2 bg-white rounded-xl border border-[#CFD8CD] text-xs font-semibold text-[#172016] focus:outline-hidden cursor-pointer"
+                    >
+                      {DELHI_NCR_LOCATIONS.map((hub) => (
+                        <option key={hub.id} value={hub.id}>
+                          {hub.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#172016]">
+                      Certification Tier
+                    </label>
+                    <select
+                      value={agentForm.certificationTier}
+                      onChange={(e) =>
+                        setAgentForm({
+                          ...agentForm,
+                          certificationTier: e.target.value as AgentCertificationTier,
+                        })
+                      }
+                      className="w-full px-3 py-2 bg-white rounded-xl border border-[#CFD8CD] text-xs font-semibold text-[#172016] focus:outline-hidden cursor-pointer"
+                    >
+                      <option value="Master Certified">Master Certified</option>
+                      <option value="Senior Specialist">Senior Specialist</option>
+                      <option value="Operations Associate">Operations Associate</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Assigned Vehicle Selection */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-[#172016] flex items-center justify-between">
+                    <span>Initial Assigned Vehicles (Custody)</span>
+                    <span className="text-[10px] text-[#5C6B5A]">
+                      {agentForm.assignedVehicleIds.length} selected
+                    </span>
+                  </label>
+                  <div className="max-h-36 overflow-y-auto p-2 bg-[#F8FAF7] rounded-xl border border-[#E8EFE5] space-y-1">
+                    {vehicles.map((v) => {
+                      const isChecked = agentForm.assignedVehicleIds.includes(v.id);
+                      return (
+                        <label
+                          key={v.id}
+                          className="flex items-center justify-between p-1.5 hover:bg-white rounded-lg cursor-pointer text-xs"
+                        >
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setAgentForm({
+                                    ...agentForm,
+                                    assignedVehicleIds: [...agentForm.assignedVehicleIds, v.id],
+                                    assignedVehicleNames: [...agentForm.assignedVehicleNames, v.name],
+                                  });
+                                } else {
+                                  setAgentForm({
+                                    ...agentForm,
+                                    assignedVehicleIds: agentForm.assignedVehicleIds.filter((id) => id !== v.id),
+                                    assignedVehicleNames: agentForm.assignedVehicleNames.filter((n) => n !== v.name),
+                                  });
+                                }
+                              }}
+                              className="w-3.5 h-3.5 rounded text-[#50644E] focus:ring-[#50644E]"
+                            />
+                            <span className="font-semibold text-[#172016]">{v.name}</span>
+                          </div>
+                          <span className="text-[10px] text-[#829280]">{v.hubLocation}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#F0F4ED]">
+                  <button
+                    type="button"
+                    onClick={() => setIsProvisionAgentModalOpen(false)}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-[#5C6B5A] hover:bg-[#F3F6F1] cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 rounded-xl bg-[#50644E] hover:bg-[#3D4D3B] text-white text-xs font-extrabold shadow-xs cursor-pointer"
+                  >
+                    Provision Agent
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Vehicle Reassignment Modal */}
+        {reassigningAgent && (
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-[#E8EFE5] space-y-5 animate-in fade-in zoom-in-95 duration-150">
+              <div className="flex items-center justify-between pb-3 border-b border-[#F0F4ED]">
+                <div>
+                  <h3 className="font-bold text-[#172016] text-sm">
+                    Reassign Fleet Roster
+                  </h3>
+                  <p className="text-[11px] text-[#5C6B5A]">
+                    {reassigningAgent.fullName} ({reassigningAgent.badgeId}) • {reassigningAgent.primaryHubName}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setReassigningAgent(null)}
+                  className="p-1 rounded-xl hover:bg-[#F3F6F1] text-[#5C6B5A] cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                <span className="text-xs font-bold text-[#172016] block">
+                  Select Vehicles Assigned to this Agent:
+                </span>
+                <div className="max-h-60 overflow-y-auto p-2 bg-[#F8FAF7] rounded-xl border border-[#E8EFE5] space-y-1">
+                  {vehicles.map((v) => {
+                    const isAssigned = reassigningAgent.assignedVehicleIds.includes(v.id);
+                    return (
+                      <label
+                        key={v.id}
+                        className="flex items-center justify-between p-2 hover:bg-white rounded-lg cursor-pointer text-xs"
+                      >
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={isAssigned}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setReassigningAgent({
+                                  ...reassigningAgent,
+                                  assignedVehicleIds: [...reassigningAgent.assignedVehicleIds, v.id],
+                                  assignedVehicleNames: [...reassigningAgent.assignedVehicleNames, v.name],
+                                });
+                              } else {
+                                setReassigningAgent({
+                                  ...reassigningAgent,
+                                  assignedVehicleIds: reassigningAgent.assignedVehicleIds.filter((id) => id !== v.id),
+                                  assignedVehicleNames: reassigningAgent.assignedVehicleNames.filter((n) => n !== v.name),
+                                });
+                              }
+                            }}
+                            className="w-3.5 h-3.5 rounded text-[#50644E] focus:ring-[#50644E]"
+                          />
+                          <span className="font-semibold text-[#172016]">{v.name}</span>
+                        </div>
+                        <span className="text-[10px] text-[#829280]">{v.hubLocation}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#F0F4ED]">
+                <button
+                  type="button"
+                  onClick={() => setReassigningAgent(null)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-[#5C6B5A] hover:bg-[#F3F6F1] cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleSaveVehicleReassignment(
+                      reassigningAgent.assignedVehicleIds,
+                      reassigningAgent.assignedVehicleNames
+                    )
+                  }
+                  className="px-5 py-2 rounded-xl bg-[#50644E] hover:bg-[#3D4D3B] text-white text-xs font-extrabold shadow-xs cursor-pointer"
+                >
+                  Save Roster
                 </button>
               </div>
             </div>

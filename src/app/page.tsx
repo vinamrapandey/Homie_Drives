@@ -8,6 +8,7 @@ import { SearchPanel } from "@/components/booking/SearchPanel";
 import { CarCard } from "@/components/cars/CarCard";
 import { useVehicles } from "@/lib/supabase/fleet";
 import { DELHI_NCR_LOCATIONS } from "@/data/locations";
+import { NotificationCenter } from "@/components/common/NotificationCenter";
 import {
   Compass,
   ShieldCheck,
@@ -91,14 +92,8 @@ export default function HomePage() {
               <span>Delhi NCR • 6 Active Handover Hubs</span>
             </div>
 
-            {/* Floating Top Bell Button */}
-            <Link
-              href="/ride?tab=pass"
-              className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 backdrop-blur-md border border-white/20 flex items-center justify-center text-white transition-all shadow-sm"
-              aria-label="Rental status and active pass notifications"
-            >
-              <Bell className="w-4 h-4" />
-            </Link>
+            {/* Floating Top Bell Notification Center */}
+            <NotificationCenter variant="dark" />
           </div>
 
           {/* Centered Atmospheric Editorial Headline (Matching Ro Screen 2) */}

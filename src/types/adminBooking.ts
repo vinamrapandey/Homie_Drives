@@ -44,3 +44,4 @@ export interface AdminBookingRecord {
   preHandoverInspection?: BookingInspectionData;
   returnInspection?: BookingInspectionData;
 }
+
