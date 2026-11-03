@@ -86,3 +86,4 @@ export const INITIAL_CONTRACT_RECORDS: RentalContract[] = [
     countersignedAt: "2026-11-02T17:10:02Z",
   },
 ];
+

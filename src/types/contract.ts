@@ -29,3 +29,4 @@ export interface RentalContract {
   signedAt: string;
   countersignedAt?: string;
 }
+

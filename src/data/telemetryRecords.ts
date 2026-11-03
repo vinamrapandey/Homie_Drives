@@ -102,3 +102,4 @@ export const INITIAL_TELEMETRY_RECORDS: VehicleTelemetryData[] = [
     dtcList: [],
   },
 ];
+

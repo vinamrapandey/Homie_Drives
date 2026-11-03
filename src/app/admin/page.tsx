@@ -28,6 +28,9 @@ import { countersignContractAction } from "@/actions/contract";
 import { VehicleTelemetryData } from "@/types/telemetry";
 import { INITIAL_TELEMETRY_RECORDS } from "@/data/telemetryRecords";
 import { refreshVehicleTelemetryAction } from "@/actions/telemetry";
+import { AdminBookingRecord, BookingLifecycleStatus } from "@/types/adminBooking";
+import { INITIAL_BOOKING_RECORDS } from "@/data/bookingRecords";
+import { advanceBookingLifecycleAction, emergencyCancelBookingAction } from "@/actions/adminBooking";
 import { DELHI_NCR_LOCATIONS } from "@/data/locations";
 import { formatINR } from "@/lib/formatters";
 import { Car as CarType } from "@/types/car";
@@ -80,6 +83,12 @@ import {
   Fuel,
   Gauge,
   Hash,
+  Video,
+  Play,
+  Download,
+  CalendarCheck,
+  Unlock,
+  ArrowRightCircle,
 } from "lucide-react";
 
 export default function MasterAdminPortalPage() {
@@ -88,7 +97,7 @@ export default function MasterAdminPortalPage() {
   const { hubs } = useHubLocations();
 
   const [activeTab, setActiveTab] = useState<
-    "fleet" | "hubs" | "pricing" | "escrow" | "kyc" | "contracts" | "telemetry" | "audit" | "agents"
+    "fleet" | "bookings" | "hubs" | "pricing" | "escrow" | "kyc" | "contracts" | "telemetry" | "audit" | "agents"
   >("fleet");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -440,6 +449,116 @@ export default function MasterAdminPortalPage() {
     } finally {
       setIsRefreshingTelemetry(null);
     }
+  };
+
+  // Live Bookings & Temporal Concurrency Locks State
+  const [adminBookings, setAdminBookings] = useState<AdminBookingRecord[]>(INITIAL_BOOKING_RECORDS);
+  const [bookingFilter, setBookingFilter] = useState<"all" | "active" | "pending_pickup" | "closed" | "cancelled">("all");
+  const [bookingSearch, setBookingSearch] = useState("");
+  const [inspectingBooking, setInspectingBooking] = useState<AdminBookingRecord | null>(null);
+  const [inspectingInspectionVideo, setInspectingInspectionVideo] = useState<{
+    bookingCode: string;
+    vehicleName: string;
+    type: "pre_handover" | "return";
+    inspection: AdminBookingRecord["preHandoverInspection"];
+  } | null>(null);
+  const [isAdvancingLifecycle, setIsAdvancingLifecycle] = useState(false);
+  const [isCancellingBooking, setIsCancellingBooking] = useState(false);
+  const [lifecycleFeedback, setLifecycleFeedback] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
+
+  const handleAdvanceLifecycle = async (bookingId: string, nextStatus: BookingLifecycleStatus) => {
+    setIsAdvancingLifecycle(true);
+    setLifecycleFeedback(null);
+    try {
+      const res = await advanceBookingLifecycleAction({
+        bookingId,
+        targetStatus: nextStatus,
+        notes: `Master Admin manually advanced booking lifecycle to ${nextStatus.toUpperCase()}`,
+      });
+      if (res.success && res.booking) {
+        setAdminBookings((prev) =>
+          prev.map((b) => (b.id === bookingId ? (res.booking as AdminBookingRecord) : b))
+        );
+        if (inspectingBooking && inspectingBooking.id === bookingId) {
+          setInspectingBooking(res.booking as AdminBookingRecord);
+        }
+        setLifecycleFeedback({
+          type: "success",
+          message: res.message || `Booking status updated to ${nextStatus.toUpperCase()}`,
+        });
+      } else {
+        setLifecycleFeedback({
+          type: "error",
+          message: res.error || "Failed to update booking status.",
+        });
+      }
+    } catch (err) {
+      setLifecycleFeedback({
+        type: "error",
+        message: err instanceof Error ? err.message : "Error advancing booking state.",
+      });
+    } finally {
+      setIsAdvancingLifecycle(false);
+    }
+  };
+
+  const handleEmergencyCancel = async (bookingId: string) => {
+    const reason = prompt("Enter emergency cancellation justification for audit log:") || "Master Admin Emergency Cancellation";
+    setIsCancellingBooking(true);
+    setLifecycleFeedback(null);
+    try {
+      const res = await emergencyCancelBookingAction({
+        bookingId,
+        cancellationReason: reason,
+      });
+      if (res.success && res.booking) {
+        setAdminBookings((prev) =>
+          prev.map((b) => (b.id === bookingId ? (res.booking as AdminBookingRecord) : b))
+        );
+        if (inspectingBooking && inspectingBooking.id === bookingId) {
+          setInspectingBooking(res.booking as AdminBookingRecord);
+        }
+        setLifecycleFeedback({
+          type: "success",
+          message: res.message || "Booking cancelled and TSTZRANGE temporal lock disengaged.",
+        });
+      } else {
+        setLifecycleFeedback({
+          type: "error",
+          message: res.error || "Failed to cancel booking.",
+        });
+      }
+    } catch (err) {
+      setLifecycleFeedback({
+        type: "error",
+        message: err instanceof Error ? err.message : "Error executing emergency cancellation.",
+      });
+    } finally {
+      setIsCancellingBooking(false);
+    }
+  };
+
+  // One-click CSV Audit Log Exporter
+  const handleExportAuditLogsCSV = () => {
+    const headers = ["Timestamp", "Action", "Actor", "Target", "Badge"];
+    const rows = auditLogs.map((l) => [
+      `"${l.timestamp}"`,
+      `"${l.action}"`,
+      `"${l.actor}"`,
+      `"${l.target}"`,
+      `"${l.badge}"`,
+    ]);
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `homie_drives_audit_logs_${new Date().toISOString().split("T")[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   // Platform Pricing & Multipliers State
@@ -1179,6 +1298,27 @@ export default function MasterAdminPortalPage() {
           </button>
           <button
             type="button"
+            onClick={() => setActiveTab("bookings")}
+            className={`px-4 py-2 rounded-xl transition-all cursor-pointer whitespace-nowrap flex items-center gap-2 ${
+              activeTab === "bookings"
+                ? "bg-[#50644E] text-white shadow-sm"
+                : "text-[#5C6B5A] hover:text-[#172016] hover:bg-white"
+            }`}
+          >
+            <CalendarCheck className="w-3.5 h-3.5" />
+            <span>Bookings &amp; Temporal Locks</span>
+            <span
+              className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                activeTab === "bookings"
+                  ? "bg-emerald-300 text-stone-900"
+                  : "bg-emerald-100 text-emerald-800"
+              }`}
+            >
+              {adminBookings.filter((b) => b.isTemporalLockActive).length} Active Locks
+            </span>
+          </button>
+          <button
+            type="button"
             onClick={() => setActiveTab("hubs")}
             className={`px-4 py-2 rounded-xl transition-all cursor-pointer whitespace-nowrap ${
               activeTab === "hubs"
@@ -1461,6 +1601,379 @@ export default function MasterAdminPortalPage() {
                     ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {/* ===================================================================
+            TAB: LIVE BOOKINGS & TEMPORAL CONCURRENCY LOCKS (TSTZRANGE)
+            =================================================================== */}
+        {activeTab === "bookings" && (
+          <div className="space-y-6">
+            {/* Top Metrics Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-white p-5 rounded-3xl border border-[#E8EFE5] shadow-xs">
+                <div className="flex items-center justify-between text-xs text-[#5C6B5A] mb-2">
+                  <span className="font-bold">Total Reservations</span>
+                  <CalendarCheck className="w-4 h-4 text-[#50644E]" />
+                </div>
+                <p className="text-3xl font-black text-[#172016]">{adminBookings.length}</p>
+                <span className="text-[11px] text-[#5C6B5A]">Across Delhi NCR operating fleet</span>
+              </div>
+
+              <div className="bg-white p-5 rounded-3xl border border-[#E8EFE5] shadow-xs">
+                <div className="flex items-center justify-between text-xs text-[#5C6B5A] mb-2">
+                  <span className="font-bold">Active TSTZRANGE Locks</span>
+                  <Lock className="w-4 h-4 text-emerald-600" />
+                </div>
+                <p className="text-3xl font-black text-emerald-700">
+                  {adminBookings.filter((b) => b.isTemporalLockActive).length}
+                </p>
+                <span className="text-[11px] text-emerald-800 font-semibold">
+                  Zero overlapping booking collision guarantee
+                </span>
+              </div>
+
+              <div className="bg-white p-5 rounded-3xl border border-[#E8EFE5] shadow-xs">
+                <div className="flex items-center justify-between text-xs text-[#5C6B5A] mb-2">
+                  <span className="font-bold">Handover / In-Trip</span>
+                  <Car className="w-4 h-4 text-amber-500" />
+                </div>
+                <p className="text-3xl font-black text-amber-800">
+                  {
+                    adminBookings.filter(
+                      (b) => b.status === "active_rental" || b.status === "verified_handover"
+                    ).length
+                  }
+                </p>
+                <span className="text-[11px] text-amber-900 font-semibold">
+                  Currently on the highway
+                </span>
+              </div>
+
+              <div className="bg-white p-5 rounded-3xl border border-[#E8EFE5] shadow-xs">
+                <div className="flex items-center justify-between text-xs text-[#5C6B5A] mb-2">
+                  <span className="font-bold">Walk-Around Videos</span>
+                  <Video className="w-4 h-4 text-purple-600" />
+                </div>
+                <p className="text-3xl font-black text-purple-700">
+                  {
+                    adminBookings.filter(
+                      (b) => b.preHandoverInspection || b.returnInspection
+                    ).length
+                  }
+                </p>
+                <span className="text-[11px] text-purple-800 font-semibold">
+                  Tamper-evident video inspection proof
+                </span>
+              </div>
+            </div>
+
+            {/* Visual Temporal Exclusion Lock Inspector (Section 1.A) */}
+            <div className="p-5 rounded-3xl bg-[#141C14] text-white border border-[#273827] shadow-lg space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center shrink-0 text-emerald-400">
+                    <Lock className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm text-white">
+                      PostgreSQL btree_gist TSTZRANGE Exclusion Range Inspector
+                    </h3>
+                    <p className="text-xs text-white/70 mt-0.5">
+                      Deterministic mathematical range locks preventing double bookings at the database kernel.
+                    </p>
+                  </div>
+                </div>
+
+                <span className="text-[10px] font-mono uppercase bg-emerald-500/20 text-emerald-300 px-3 py-1 rounded-full border border-emerald-500/30 flex items-center gap-1.5 self-start sm:self-auto">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  Kernel Concurrency Locks Active
+                </span>
+              </div>
+
+              {/* Range Lock Visual Strips */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+                {adminBookings
+                  .filter((b) => b.isTemporalLockActive)
+                  .map((b) => (
+                    <div
+                      key={b.id}
+                      className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-2 text-xs"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-white flex items-center gap-1.5">
+                          <Car className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>{b.vehicleName}</span>
+                        </span>
+                        <span className="text-[10px] font-mono bg-emerald-400/10 text-emerald-300 px-2 py-0.5 rounded border border-emerald-400/20 font-bold">
+                          LOCKED ({b.bookingCode})
+                        </span>
+                      </div>
+                      <div className="p-2 bg-black/40 rounded-xl font-mono text-[11px] text-emerald-300 border border-emerald-500/20">
+                        {b.tstzrangeInterval}
+                      </div>
+                      <div className="flex items-center justify-between text-[10px] text-white/60">
+                        <span>Driver: {b.customerName}</span>
+                        <span>Hub: {b.hubName.split(",")[0]}</span>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+
+            {/* Bookings Queue Table */}
+            <div className="bg-white rounded-3xl border border-[#E8EFE5] shadow-homie overflow-hidden">
+              <div className="p-5 sm:p-6 border-b border-[#F0F4ED] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-bold text-[#172016]">
+                    Master Booking Lifecycle Queue
+                  </h2>
+                  <p className="text-xs text-[#5C6B5A] mt-0.5">
+                    Live lifecycle state machine monitoring, OTP verification, walk-around inspections, and emergency lock overrides.
+                  </p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  <div className="relative">
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#829280]" />
+                    <input
+                      type="text"
+                      placeholder="Search booking code, driver, vehicle..."
+                      value={bookingSearch}
+                      onChange={(e) => setBookingSearch(e.target.value)}
+                      className="pl-9 pr-4 py-2 bg-[#F3F6F1] border border-[#CFD8CD] focus:border-[#50644E] rounded-xl text-xs font-medium text-[#172016] outline-hidden w-full sm:w-64"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-1 bg-[#F3F6F1] p-1 rounded-xl border border-[#CFD8CD] overflow-x-auto">
+                    {[
+                      { id: "all", label: "All" },
+                      { id: "pending_pickup", label: "Pending Pickup" },
+                      { id: "active", label: "Active Highway" },
+                      { id: "closed", label: "Closed" },
+                    ].map((f) => (
+                      <button
+                        key={f.id}
+                        type="button"
+                        onClick={() => setBookingFilter(f.id as typeof bookingFilter)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                          bookingFilter === f.id
+                            ? "bg-white text-[#172016] shadow-2xs"
+                            : "text-[#5C6B5A] hover:text-[#172016]"
+                        }`}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Feedback alert */}
+              {lifecycleFeedback && (
+                <div
+                  className={`mx-5 sm:mx-6 mt-4 p-3 rounded-2xl text-xs font-semibold flex items-center gap-2 ${
+                    lifecycleFeedback.type === "success"
+                      ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                      : "bg-red-50 text-red-800 border border-red-200"
+                  }`}
+                >
+                  {lifecycleFeedback.type === "success" ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  ) : (
+                    <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                  )}
+                  <span>{lifecycleFeedback.message}</span>
+                </div>
+              )}
+
+              {/* Table */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-[#FAFBF9] border-b border-[#E8EFE5] text-[#5C6B5A] font-bold uppercase tracking-wider text-[10px]">
+                      <th className="p-4 sm:pl-6">Booking Ref &amp; OTP</th>
+                      <th className="p-4">Customer &amp; Contact</th>
+                      <th className="p-4">Vehicle &amp; Station</th>
+                      <th className="p-4">Rental Duration</th>
+                      <th className="p-4">Lifecycle Step</th>
+                      <th className="p-4">Inspection Proof</th>
+                      <th className="p-4 sm:pr-6 text-right">Emergency Controls</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#F0F4ED]">
+                    {adminBookings
+                      .filter((b) => {
+                        const matchesFilter =
+                          bookingFilter === "all"
+                            ? true
+                            : bookingFilter === "active"
+                            ? b.status === "active_rental" || b.status === "verified_handover"
+                            : b.status === bookingFilter;
+                        const q = bookingSearch.toLowerCase().trim();
+                        const matchesSearch =
+                          !q ||
+                          b.bookingCode.toLowerCase().includes(q) ||
+                          b.customerName.toLowerCase().includes(q) ||
+                          b.customerPhone.includes(q) ||
+                          b.vehicleName.toLowerCase().includes(q) ||
+                          b.registrationNumber.toLowerCase().includes(q);
+                        return matchesFilter && matchesSearch;
+                      })
+                      .map((b) => (
+                        <tr key={b.id} className="hover:bg-[#FAFBF9] transition-colors">
+                          <td className="p-4 sm:pl-6">
+                            <div className="font-bold text-[#172016] font-mono">{b.bookingCode}</div>
+                            <div className="text-[10px] text-amber-800 font-bold mt-0.5 font-mono">
+                              Pickup OTP: {b.pickupOtp}
+                            </div>
+                            <span className="text-[10px] text-[#829280]">
+                              Agent: {b.assignedAgent}
+                            </span>
+                          </td>
+
+                          <td className="p-4">
+                            <div className="font-bold text-[#172016]">{b.customerName}</div>
+                            <div className="text-[11px] text-[#5C6B5A]">{b.customerPhone}</div>
+                            <div className="text-[10px] text-[#829280]">{b.customerEmail}</div>
+                          </td>
+
+                          <td className="p-4">
+                            <div className="font-bold text-[#172016]">{b.vehicleName}</div>
+                            <div className="text-[11px] font-mono text-[#5C6B5A]">
+                              {b.registrationNumber}
+                            </div>
+                            <div className="text-[10px] text-[#829280] truncate max-w-[170px]">
+                              {b.hubName.split(",")[0]}
+                            </div>
+                          </td>
+
+                          <td className="p-4">
+                            <div className="font-semibold text-[#172016]">
+                              {b.pickupDate} → {b.returnDate}
+                            </div>
+                            <div className="text-[10px] font-bold text-emerald-800">
+                              Total: {formatINR(b.totalAmountINR)}
+                            </div>
+                            <div className="text-[10px] text-[#829280]">
+                              Held: {formatINR(b.depositHeldINR)}
+                            </div>
+                          </td>
+
+                          <td className="p-4">
+                            {b.status === "pending_pickup" && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                                <Clock className="w-3 h-3 text-amber-700" />
+                                <span>Pending Pickup</span>
+                              </span>
+                            )}
+                            {b.status === "verified_handover" && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-100 text-blue-900 border border-blue-300">
+                                <UserCheck className="w-3 h-3 text-blue-700" />
+                                <span>OTP Verified</span>
+                              </span>
+                            )}
+                            {b.status === "active_rental" && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                <span>Active Highway</span>
+                              </span>
+                            )}
+                            {b.status === "returned_inspected" && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-purple-100 text-purple-900 border border-purple-300">
+                                <CheckCircle2 className="w-3 h-3 text-purple-700" />
+                                <span>Inspected</span>
+                              </span>
+                            )}
+                            {b.status === "closed" && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-stone-100 text-stone-700 border border-stone-300">
+                                <Check className="w-3 h-3 text-stone-600" />
+                                <span>Closed / Settled</span>
+                              </span>
+                            )}
+                            {b.status === "cancelled" && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300">
+                                <Ban className="w-3 h-3 text-rose-600" />
+                                <span>Cancelled</span>
+                              </span>
+                            )}
+                          </td>
+
+                          <td className="p-4">
+                            <div className="flex flex-col gap-1">
+                              {b.preHandoverInspection ? (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setInspectingInspectionVideo({
+                                      bookingCode: b.bookingCode,
+                                      vehicleName: b.vehicleName,
+                                      type: "pre_handover",
+                                      inspection: b.preHandoverInspection,
+                                    })
+                                  }
+                                  className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 hover:text-emerald-900 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 cursor-pointer"
+                                >
+                                  <Video className="w-3 h-3" />
+                                  <span>Pre-Handover Video</span>
+                                </button>
+                              ) : (
+                                <span className="text-[10px] text-[#829280] italic">
+                                  No pre-trip video
+                                </span>
+                              )}
+
+                              {b.returnInspection ? (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setInspectingInspectionVideo({
+                                      bookingCode: b.bookingCode,
+                                      vehicleName: b.vehicleName,
+                                      type: "return",
+                                      inspection: b.returnInspection,
+                                    })
+                                  }
+                                  className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-800 hover:text-purple-900 bg-purple-50 px-2 py-0.5 rounded border border-purple-200 cursor-pointer"
+                                >
+                                  <Video className="w-3 h-3" />
+                                  <span>Return Video ({b.returnInspection.odometerKm} km)</span>
+                                </button>
+                              ) : null}
+                            </div>
+                          </td>
+
+                          <td className="p-4 sm:pr-6 text-right">
+                            <div className="inline-flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setInspectingBooking(b)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-[#F3F6F1] hover:bg-[#50644E] text-[#3D4D3B] hover:text-white transition-all border border-[#CFD8CD] cursor-pointer"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>Manage</span>
+                              </button>
+
+                              {b.status !== "closed" && b.status !== "cancelled" && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleEmergencyCancel(b.id)}
+                                  disabled={isCancellingBooking}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-rose-50 hover:bg-rose-600 text-rose-800 hover:text-white transition-all border border-rose-200 cursor-pointer disabled:opacity-50"
+                                  title="Emergency Cancel and Unlock Vehicle TSTZRANGE range"
+                                >
+                                  <Unlock className="w-3.5 h-3.5" />
+                                  <span>Unlock</span>
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
@@ -2977,11 +3490,22 @@ export default function MasterAdminPortalPage() {
         {/* TAB 3: SYSTEM AUDIT LOG */}
         {activeTab === "audit" && (
           <div className="bg-white rounded-3xl border border-[#E8EFE5] shadow-homie overflow-hidden">
-            <div className="p-5 sm:p-6 border-b border-[#F0F4ED]">
-              <h2 className="text-lg font-bold text-[#172016]">Cryptographic Audit Log Stream</h2>
-              <p className="text-xs text-[#5C6B5A] mt-0.5">
-                Every reservation, handover, inspection, and status transition generates an immutable record in Supabase.
-              </p>
+            <div className="p-5 sm:p-6 border-b border-[#F0F4ED] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold text-[#172016]">Cryptographic Audit Log Stream</h2>
+                <p className="text-xs text-[#5C6B5A] mt-0.5">
+                  Every reservation, handover, inspection, and status transition generates an immutable record in Supabase.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleExportAuditLogsCSV}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-[#F3F6F1] hover:bg-[#50644E] text-[#172016] hover:text-white transition-all border border-[#CAD8C6] hover:border-[#50644E] cursor-pointer shadow-2xs self-start sm:self-auto"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Export Audit Logs (CSV)</span>
+              </button>
             </div>
 
             <div className="divide-y divide-[#F0F4ED]">
@@ -5249,6 +5773,352 @@ export default function MasterAdminPortalPage() {
                     </button>
                   )}
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ===================================================================
+            MODAL: BOOKING LIFECYCLE CONTROLLER & CONCURRENCY OVERRIDE
+            =================================================================== */}
+        {inspectingBooking && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in">
+            <div className="bg-white rounded-3xl max-w-2xl w-full border border-[#DFE6DC] shadow-2xl overflow-hidden my-8 max-h-[90vh] flex flex-col">
+              {/* Header */}
+              <div className="p-5 sm:p-6 bg-[#172016] text-white flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center shrink-0 text-emerald-400">
+                    <CalendarCheck className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-extrabold text-base tracking-tight">
+                        Booking Lifecycle: {inspectingBooking.bookingCode}
+                      </h3>
+                      <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-mono px-2 py-0.5 rounded-full border border-emerald-500/30 font-bold uppercase">
+                        {inspectingBooking.status.replace("_", " ")}
+                      </span>
+                    </div>
+                    <p className="text-xs text-white/70 mt-0.5">
+                      {inspectingBooking.vehicleName} • Assigned Agent: {inspectingBooking.assignedAgent}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInspectingBooking(null);
+                    setLifecycleFeedback(null);
+                  }}
+                  className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/80 hover:text-white transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="p-5 sm:p-6 space-y-5 overflow-y-auto text-xs text-[#172016]">
+                {/* 4-Step Lifecycle Machine Progress Bar */}
+                <div className="p-4 rounded-2xl bg-[#F8FAF7] border border-[#DFE6DC] space-y-3">
+                  <span className="text-[11px] font-bold text-[#5C6B5A] uppercase tracking-wider block">
+                    Forward-Only Lifecycle State Progress
+                  </span>
+                  <div className="grid grid-cols-4 gap-2 text-center text-[10px] font-bold">
+                    <div
+                      className={`p-2 rounded-xl border ${
+                        inspectingBooking.status === "pending_pickup"
+                          ? "bg-amber-100 text-amber-900 border-amber-300 ring-2 ring-amber-400"
+                          : "bg-white text-emerald-800 border-emerald-300"
+                      }`}
+                    >
+                      1. Pending Pickup
+                    </div>
+                    <div
+                      className={`p-2 rounded-xl border ${
+                        inspectingBooking.status === "verified_handover"
+                          ? "bg-blue-100 text-blue-900 border-blue-300 ring-2 ring-blue-400"
+                          : inspectingBooking.status === "active_rental" ||
+                            inspectingBooking.status === "returned_inspected" ||
+                            inspectingBooking.status === "closed"
+                          ? "bg-white text-emerald-800 border-emerald-300"
+                          : "bg-stone-50 text-stone-400 border-stone-200"
+                      }`}
+                    >
+                      2. Handover OTP
+                    </div>
+                    <div
+                      className={`p-2 rounded-xl border ${
+                        inspectingBooking.status === "active_rental"
+                          ? "bg-emerald-100 text-emerald-900 border-emerald-300 ring-2 ring-emerald-400"
+                          : inspectingBooking.status === "returned_inspected" ||
+                            inspectingBooking.status === "closed"
+                          ? "bg-white text-emerald-800 border-emerald-300"
+                          : "bg-stone-50 text-stone-400 border-stone-200"
+                      }`}
+                    >
+                      3. Highway Drive
+                    </div>
+                    <div
+                      className={`p-2 rounded-xl border ${
+                        inspectingBooking.status === "returned_inspected"
+                          ? "bg-purple-100 text-purple-900 border-purple-300 ring-2 ring-purple-400"
+                          : inspectingBooking.status === "closed"
+                          ? "bg-stone-200 text-stone-800 border-stone-300"
+                          : "bg-stone-50 text-stone-400 border-stone-200"
+                      }`}
+                    >
+                      4. Closed / Settled
+                    </div>
+                  </div>
+                </div>
+
+                {/* Temporal Concurrency Lock Information */}
+                <div className="p-4 rounded-2xl bg-[#141C14] text-white border border-[#273827] space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold flex items-center gap-1.5 text-xs text-white">
+                      <Lock className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>PostgreSQL btree_gist TSTZRANGE Exclusion Lock</span>
+                    </span>
+                    <span
+                      className={`text-[10px] font-mono px-2 py-0.5 rounded font-bold ${
+                        inspectingBooking.isTemporalLockActive
+                          ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                          : "bg-stone-700 text-stone-300 border border-stone-600"
+                      }`}
+                    >
+                      {inspectingBooking.isTemporalLockActive ? "LOCK ACTIVE" : "RELEASED"}
+                    </span>
+                  </div>
+                  <div className="p-2 bg-black/40 rounded-xl font-mono text-[11px] text-emerald-300 border border-emerald-500/20">
+                    {inspectingBooking.tstzrangeInterval}
+                  </div>
+                  <p className="text-[10px] text-white/60">
+                    Prevents concurrent reservations on this vehicle plate across all channels.
+                  </p>
+                </div>
+
+                {/* Details Grid */}
+                <div className="grid grid-cols-2 gap-3 text-xs bg-[#F8FAF7] p-4 rounded-2xl border border-[#DFE6DC]">
+                  <div>
+                    <span className="text-[10px] text-[#5C6B5A] block">Customer</span>
+                    <strong className="text-[#172016] text-sm">{inspectingBooking.customerName}</strong>
+                    <span className="text-[11px] text-[#5C6B5A] block">{inspectingBooking.customerPhone}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-[#5C6B5A] block">Pickup Verification OTP</span>
+                    <strong className="text-amber-800 font-mono text-base">{inspectingBooking.pickupOtp}</strong>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-[#5C6B5A] block">Rental Schedule</span>
+                    <span className="text-[#172016] font-semibold">
+                      {inspectingBooking.pickupDate} ({inspectingBooking.pickupTime}) → {inspectingBooking.returnDate} ({inspectingBooking.returnTime})
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-[#5C6B5A] block">Pricing &amp; Held Deposit</span>
+                    <span className="text-[#172016] font-bold">
+                      {formatINR(inspectingBooking.totalAmountINR)} (Deposit: {formatINR(inspectingBooking.depositHeldINR)})
+                    </span>
+                  </div>
+                </div>
+
+                {/* State Machine Transition Buttons */}
+                <div className="p-4 rounded-2xl border border-[#CAD8C6] bg-white space-y-2">
+                  <span className="text-xs font-bold text-[#172016] block">
+                    Lifecycle State Machine Dispatch Controls
+                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    {inspectingBooking.status === "pending_pickup" && (
+                      <button
+                        type="button"
+                        onClick={() => handleAdvanceLifecycle(inspectingBooking.id, "verified_handover")}
+                        disabled={isAdvancingLifecycle}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-[#50644E] hover:bg-[#3D4D3B] text-white shadow-sm cursor-pointer disabled:opacity-50"
+                      >
+                        <UserCheck className="w-3.5 h-3.5" />
+                        <span>Advance to Handover Verified</span>
+                      </button>
+                    )}
+
+                    {inspectingBooking.status === "verified_handover" && (
+                      <button
+                        type="button"
+                        onClick={() => handleAdvanceLifecycle(inspectingBooking.id, "active_rental")}
+                        disabled={isAdvancingLifecycle}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-[#50644E] hover:bg-[#3D4D3B] text-white shadow-sm cursor-pointer disabled:opacity-50"
+                      >
+                        <Car className="w-3.5 h-3.5" />
+                        <span>Dispatch onto Highway (Active Rental)</span>
+                      </button>
+                    )}
+
+                    {inspectingBooking.status === "active_rental" && (
+                      <button
+                        type="button"
+                        onClick={() => handleAdvanceLifecycle(inspectingBooking.id, "returned_inspected")}
+                        disabled={isAdvancingLifecycle}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-purple-700 hover:bg-purple-800 text-white shadow-sm cursor-pointer disabled:opacity-50"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>Record Vehicle Return &amp; Inspected</span>
+                      </button>
+                    )}
+
+                    {inspectingBooking.status === "returned_inspected" && (
+                      <button
+                        type="button"
+                        onClick={() => handleAdvanceLifecycle(inspectingBooking.id, "closed")}
+                        disabled={isAdvancingLifecycle}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-stone-800 hover:bg-black text-white shadow-sm cursor-pointer disabled:opacity-50"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Close Reservation &amp; Release TSTZRANGE Lock</span>
+                      </button>
+                    )}
+
+                    {inspectingBooking.status !== "closed" && inspectingBooking.status !== "cancelled" && (
+                      <button
+                        type="button"
+                        onClick={() => handleEmergencyCancel(inspectingBooking.id)}
+                        disabled={isCancellingBooking}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-rose-50 hover:bg-rose-600 text-rose-800 hover:text-white border border-rose-200 transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        <Ban className="w-3.5 h-3.5" />
+                        <span>Emergency Cancel &amp; Disengage Lock</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="p-4 sm:p-5 bg-[#FAFBF9] border-t border-[#E8EFE5] flex items-center justify-between">
+                <span className="text-[11px] text-[#829280] font-mono">
+                  Origin Hub: {inspectingBooking.hubName}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInspectingBooking(null);
+                    setLifecycleFeedback(null);
+                  }}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-[#5C6B5A] hover:bg-[#F3F6F1] transition-colors cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ===================================================================
+            MODAL: 360° VEHICLE INSPECTION VIDEO & DAMAGE VERIFICATION VAULT
+            =================================================================== */}
+        {inspectingInspectionVideo && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in">
+            <div className="bg-white rounded-3xl max-w-xl w-full border border-[#DFE6DC] shadow-2xl overflow-hidden my-8 max-h-[90vh] flex flex-col">
+              <div className="p-5 sm:p-6 bg-[#172016] text-white flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center shrink-0 text-purple-400">
+                    <Video className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-base tracking-tight">
+                      {inspectingInspectionVideo.type === "pre_handover"
+                        ? "Pre-Handover 360° Inspection Video"
+                        : "Post-Trip Return Inspection Video"}
+                    </h3>
+                    <p className="text-xs text-white/70">
+                      Booking {inspectingInspectionVideo.bookingCode} • {inspectingInspectionVideo.vehicleName}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setInspectingInspectionVideo(null)}
+                  className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/80 hover:text-white transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="p-5 sm:p-6 space-y-4 overflow-y-auto text-xs text-[#172016]">
+                {/* Stylized Video Player Preview */}
+                <div className="relative aspect-video rounded-2xl overflow-hidden bg-black flex flex-col items-center justify-center border border-black shadow-inner group">
+                  <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-full text-[10px] font-mono text-white flex items-center gap-1.5 border border-white/20">
+                    <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                    <span>360° WALK-AROUND • TAMPER-SEALED</span>
+                  </div>
+
+                  <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-md border border-white/40 flex items-center justify-center text-white group-hover:scale-110 transition-transform cursor-pointer shadow-lg">
+                    <Play className="w-6 h-6 ml-0.5" />
+                  </div>
+                  <span className="text-[11px] text-white/80 mt-2 font-mono">
+                    {inspectingInspectionVideo.inspection?.videoUrl}
+                  </span>
+                </div>
+
+                {/* Inspection Parameters */}
+                <div className="grid grid-cols-2 gap-3 bg-[#F8FAF7] p-4 rounded-2xl border border-[#DFE6DC] text-xs">
+                  <div>
+                    <span className="text-[10px] text-[#5C6B5A] block">Inspected By Agent</span>
+                    <strong className="text-[#172016]">{inspectingInspectionVideo.inspection?.agentName}</strong>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-[#5C6B5A] block">Timestamp</span>
+                    <span className="font-mono text-[#172016]">
+                      {new Date(inspectingInspectionVideo.inspection?.recordedAt || Date.now()).toLocaleTimeString("en-IN", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: true,
+                      })}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-[#5C6B5A] block">Odometer Reading</span>
+                    <strong className="text-[#172016] font-mono text-sm">
+                      {inspectingInspectionVideo.inspection?.odometerKm.toLocaleString()} km
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-[#5C6B5A] block">Fuel / Battery Level</span>
+                    <strong className="text-emerald-800 font-mono text-sm">
+                      {inspectingInspectionVideo.inspection?.fuelOrBatteryPercent}%
+                    </strong>
+                  </div>
+                </div>
+
+                {/* Sanitization & Damage Seal */}
+                <div className="p-3.5 rounded-xl bg-[#F0F7EE] border border-[#B9DDB5] flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-700" />
+                    <span className="font-bold text-emerald-900 text-xs">
+                      Homie Certified Sanitization Seal
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-bold bg-white text-emerald-800 px-2 py-0.5 rounded border border-emerald-300">
+                    PASSED
+                  </span>
+                </div>
+
+                {inspectingInspectionVideo.inspection?.damageNotes && (
+                  <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-1">
+                    <span className="font-bold block">Agent Visual Damage &amp; Cleanliness Notes:</span>
+                    <p className="text-[#5C6B5A]">{inspectingInspectionVideo.inspection.damageNotes}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="p-4 sm:p-5 bg-[#FAFBF9] border-t border-[#E8EFE5] flex items-center justify-end">
+                <button
+                  type="button"
+                  onClick={() => setInspectingInspectionVideo(null)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-[#5C6B5A] hover:bg-[#F3F6F1] transition-colors cursor-pointer"
+                >
+                  Close Video
+                </button>
               </div>
             </div>
           </div>

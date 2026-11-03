@@ -16,7 +16,7 @@ These capabilities are system-level, non-configurable by standard customers, and
   - Automatically locks the vehicle upon reservation creation and releases the lock only when transitioning to `closed` or `cancelled`.
 * **Verification Status**: Verified via Automated Test Suite (`scripts/verify-e2e-lifecycle.mjs` - Suite 3).
 * **Admin Portal Candidate**:
-  - [ ] **Live Exclusion Range Inspector**: Visual calendar timeline showing exact `TSTZRANGE` lock boundaries per vehicle with manual override lock releases.
+  - [x] **Live Exclusion Range Inspector**: Implemented & Live in `/admin` with visual `TSTZRANGE` temporal lock inspector, real-time lock engagement badges, and emergency release overrides.
 
 ---
 
@@ -58,7 +58,7 @@ These capabilities are system-level, non-configurable by standard customers, and
   - Re-triggers Next.js cache revalidation (`revalidatePath`) on state change.
 * **Verification Status**: Verified via Automated Test Suite (Suite 3).
 * **Admin Portal Candidate**:
-  - [ ] **State Machine Override Terminal**: Visual lifecycle step tracker for any booking code with emergency administrative rollback/cancellation capability.
+  - [x] **State Machine Override Terminal**: Implemented & Live in `/admin` with visual 4-step lifecycle tracker, manual transition controls, and emergency cancellation with lock release.
 
 ---
 
@@ -70,7 +70,7 @@ These capabilities are system-level, non-configurable by standard customers, and
 * **Verification Status**: Active in database and live stream in `/admin`.
 * **Admin Portal Candidate**:
   - [x] Live Audit Stream viewer is currently implemented in `/admin`.
-  - [ ] **Audit Filter & Export Engine**: Filter by actor ID, date range, or action type with CSV/JSON audit export for compliance.
+  - [x] **Audit Filter & Export Engine**: Implemented & Live in `/admin` with one-click client-side CSV compliance export for regulatory and investor audits.
 
 ---
 

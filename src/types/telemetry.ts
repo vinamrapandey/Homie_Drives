@@ -33,3 +33,4 @@ export interface VehicleTelemetryData {
   lastCanbusSync: string;
   dtcList: DiagnosticTroubleCode[];
 }
+
