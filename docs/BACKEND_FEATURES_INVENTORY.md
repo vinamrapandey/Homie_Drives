@@ -45,7 +45,7 @@ These capabilities are system-level, non-configurable by standard customers, and
   - Computes net refund = $\max(0, \text{Deposit Held} - \text{Total Deductions})$ (**Zero Floor Invariant**: customer refund can never result in a negative debit).
 * **Verification Status**: Verified via Automated Test Suite (Suite 2).
 * **Admin Portal Candidate**:
-  - [ ] **Financial Escrow & Deposit Ledger**: Master overview of all active deposits held in escrow, toll deductions cleared, and bank refund dispatch statuses.
+  - [x] **Financial Escrow & Deposit Ledger**: Live in `/admin` with master overview of all active deposits held in escrow, automated FASTag toll deductions, excess km penalties, dispute adjudication, and zero-floor bank refund dispatch statuses.
 
 ---
 
@@ -166,6 +166,6 @@ Based on the technical inventory above, the following three administrative addit
    - Allow Master Admin to adjust GST percentage, platform fee %, and condition multipliers dynamically from `/admin` without code redeploys. *(Implemented & Live in `/admin`)*
 2. [x] **Customer KYC & Document Verification Queue**:
    - Provide an administrative dashboard to review driver licenses, verify age (23+ requirement), inspect uploaded physical DL photos via secure watermarked pre-signed URLs, calibrate risk levels, and approve or request re-uploads. *(Implemented & Live in `/admin`)*
-3. [ ] **Master Escrow & Financial Settlement Ledger**:
-   - Provide executive oversight of all security deposits held, FASTag tolls deducted, and bank refunds pending disbursement.
+3. [x] **Master Escrow & Financial Settlement Ledger**:
+   - Provide executive oversight of all security deposits held, FASTag tolls deducted, and bank refunds pending disbursement. *(Implemented & Live in `/admin`)*
 

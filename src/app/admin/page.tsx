@@ -19,6 +19,9 @@ import { DEFAULT_PLATFORM_SETTINGS, PlatformPricingSettings } from "@/data/platf
 import { CustomerKYCRecord, KYCVerificationStatus, KYCRiskLevel } from "@/types/kyc";
 import { INITIAL_KYC_RECORDS } from "@/data/kycRecords";
 import { reviewCustomerKYCAction, requestKYCReuploadAction } from "@/actions/kyc";
+import { EscrowSettlementRecord, SettlementStatus } from "@/types/settlement";
+import { INITIAL_SETTLEMENT_RECORDS } from "@/data/settlementRecords";
+import { dispatchEscrowRefundAction, resolveEscrowDisputeAction } from "@/actions/settlement";
 import { DELHI_NCR_LOCATIONS } from "@/data/locations";
 import { formatINR } from "@/lib/formatters";
 import { Car as CarType } from "@/types/car";
@@ -61,6 +64,10 @@ import {
   FileText,
   AlertOctagon,
   BadgeAlert,
+  Receipt,
+  Scale,
+  Landmark,
+  Banknote,
 } from "lucide-react";
 
 export default function MasterAdminPortalPage() {
@@ -69,7 +76,7 @@ export default function MasterAdminPortalPage() {
   const { hubs } = useHubLocations();
 
   const [activeTab, setActiveTab] = useState<
-    "fleet" | "hubs" | "pricing" | "kyc" | "audit" | "agents"
+    "fleet" | "hubs" | "pricing" | "escrow" | "kyc" | "audit" | "agents"
   >("fleet");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -191,6 +198,161 @@ export default function MasterAdminPortalPage() {
       });
     } finally {
       setIsReviewingKYC(false);
+    }
+  };
+
+  // Master Escrow & Financial Settlement Ledger State
+  const [settlementRecords, setSettlementRecords] = useState<EscrowSettlementRecord[]>(
+    INITIAL_SETTLEMENT_RECORDS
+  );
+  const [escrowFilter, setEscrowFilter] = useState<
+    "all" | "held_in_escrow" | "refund_dispatched" | "disputed_hold"
+  >("all");
+  const [escrowSearch, setEscrowSearch] = useState("");
+  const [inspectingSettlement, setInspectingSettlement] =
+    useState<EscrowSettlementRecord | null>(null);
+  const [adjustedDamage, setAdjustedDamage] = useState<number>(0);
+  const [disputeResolutionNotes, setDisputeResolutionNotes] = useState<string>("");
+  const [isProcessingEscrow, setIsProcessingEscrow] = useState(false);
+  const [escrowFeedback, setEscrowFeedback] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
+
+  const totalEscrowCapitalHeld = settlementRecords
+    .filter((s) => s.status === "held_in_escrow")
+    .reduce((sum, s) => sum + s.depositHeldINR, 0);
+
+  const totalRefundsDisbursed = settlementRecords
+    .filter((s) => s.status === "refund_dispatched")
+    .reduce((sum, s) => sum + s.netRefundINR, 0);
+
+  const totalFastagRecoveries = settlementRecords.reduce(
+    (sum, s) => sum + s.fastagTollsINR,
+    0
+  );
+
+  const activeEscrowDisputes = settlementRecords.filter(
+    (s) => s.status === "disputed_hold"
+  ).length;
+
+  const handleOpenSettlement = (record: EscrowSettlementRecord) => {
+    setInspectingSettlement(record);
+    setAdjustedDamage(record.damageCleaningChargesINR);
+    setDisputeResolutionNotes(record.settlementNotes || "");
+    setEscrowFeedback(null);
+  };
+
+  const handleDispatchRefund = async (record: EscrowSettlementRecord) => {
+    setIsProcessingEscrow(true);
+    setEscrowFeedback(null);
+
+    try {
+      const res = await dispatchEscrowRefundAction({
+        settlementId: record.id,
+        bookingRef: record.bookingRef,
+        netRefundINR: record.netRefundINR,
+        notes: "Master Admin approved instant electronic bank disbursement.",
+      });
+
+      if (res.success) {
+        setEscrowFeedback({
+          type: "success",
+          message: res.message || `Refund dispatched for ${record.bookingRef}.`,
+        });
+        setSettlementRecords((prev) =>
+          prev.map((s) =>
+            s.id === record.id
+              ? {
+                  ...s,
+                  status: "refund_dispatched",
+                  paymentGatewayRef: res.gatewayRef || s.paymentGatewayRef,
+                  settledAt: new Date().toISOString(),
+                  settledBy: user?.email || "Master Admin Treasury",
+                }
+              : s
+          )
+        );
+        setTimeout(() => {
+          if (inspectingSettlement?.id === record.id) {
+            setInspectingSettlement(null);
+          }
+          setEscrowFeedback(null);
+        }, 1500);
+      } else {
+        setEscrowFeedback({
+          type: "error",
+          message: res.error || "Failed to dispatch refund.",
+        });
+      }
+    } catch (err) {
+      setEscrowFeedback({
+        type: "error",
+        message: err instanceof Error ? err.message : "Error dispatching refund.",
+      });
+    } finally {
+      setIsProcessingEscrow(false);
+    }
+  };
+
+  const handleResolveDispute = async () => {
+    if (!inspectingSettlement) return;
+    setIsProcessingEscrow(true);
+    setEscrowFeedback(null);
+
+    try {
+      const fixedDeductions =
+        inspectingSettlement.fastagTollsINR +
+        inspectingSettlement.excessKmChargesINR;
+
+      const res = await resolveEscrowDisputeAction({
+        settlementId: inspectingSettlement.id,
+        bookingRef: inspectingSettlement.bookingRef,
+        adjustedDamageChargesINR: Number(adjustedDamage),
+        depositHeldINR: inspectingSettlement.depositHeldINR,
+        fixedDeductionsINR: fixedDeductions,
+        resolutionNotes:
+          disputeResolutionNotes.trim() ||
+          "Administrative adjustment of disputed damage charges.",
+      });
+
+      if (res.success) {
+        setEscrowFeedback({
+          type: "success",
+          message: res.message || "Dispute resolved and zero-floor net refund updated.",
+        });
+        setSettlementRecords((prev) =>
+          prev.map((s) =>
+            s.id === inspectingSettlement.id
+              ? {
+                  ...s,
+                  damageCleaningChargesINR: Number(adjustedDamage),
+                  totalDeductionsINR: res.totalDeductionsINR ?? s.totalDeductionsINR,
+                  netRefundINR: res.netRefundINR ?? s.netRefundINR,
+                  zeroFloorApplied: res.zeroFloorApplied ?? s.zeroFloorApplied,
+                  status: "held_in_escrow",
+                  settlementNotes: disputeResolutionNotes.trim(),
+                }
+              : s
+          )
+        );
+        setTimeout(() => {
+          setInspectingSettlement(null);
+          setEscrowFeedback(null);
+        }, 1500);
+      } else {
+        setEscrowFeedback({
+          type: "error",
+          message: res.error || "Failed to resolve dispute.",
+        });
+      }
+    } catch (err) {
+      setEscrowFeedback({
+        type: "error",
+        message: err instanceof Error ? err.message : "Error resolving dispute.",
+      });
+    } finally {
+      setIsProcessingEscrow(false);
     }
   };
 
@@ -953,6 +1115,39 @@ export default function MasterAdminPortalPage() {
           </button>
           <button
             type="button"
+            onClick={() => setActiveTab("escrow")}
+            className={`px-4 py-2 rounded-xl transition-all cursor-pointer whitespace-nowrap flex items-center gap-2 ${
+              activeTab === "escrow"
+                ? "bg-[#50644E] text-white shadow-sm"
+                : "text-[#5C6B5A] hover:text-[#172016] hover:bg-white"
+            }`}
+          >
+            <Landmark className="w-3.5 h-3.5" />
+            <span>Escrow &amp; Settlements</span>
+            {activeEscrowDisputes > 0 ? (
+              <span
+                className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+                  activeTab === "escrow"
+                    ? "bg-rose-300 text-stone-900"
+                    : "bg-rose-100 text-rose-800"
+                }`}
+              >
+                {activeEscrowDisputes} Disputed
+              </span>
+            ) : totalEscrowCapitalHeld > 0 ? (
+              <span
+                className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                  activeTab === "escrow"
+                    ? "bg-emerald-300 text-stone-900"
+                    : "bg-emerald-100 text-emerald-800"
+                }`}
+              >
+                ₹{(totalEscrowCapitalHeld / 1000).toFixed(0)}k Held
+              </span>
+            ) : null}
+          </button>
+          <button
+            type="button"
             onClick={() => setActiveTab("kyc")}
             className={`px-4 py-2 rounded-xl transition-all cursor-pointer whitespace-nowrap flex items-center gap-2 ${
               activeTab === "kyc"
@@ -1621,6 +1816,310 @@ export default function MasterAdminPortalPage() {
                 </button>
               </div>
             </form>
+          </div>
+        )}
+
+        {/* TAB 4: MASTER ESCROW & FINANCIAL SETTLEMENT LEDGER */}
+        {activeTab === "escrow" && (
+          <div className="bg-white rounded-3xl border border-[#E8EFE5] shadow-homie overflow-hidden">
+            {/* Header with Treasury KPIs */}
+            <div className="p-5 sm:p-6 border-b border-[#F0F4ED] flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-bold text-[#172016]">
+                    Master Security Deposit Escrow &amp; Settlement Ledger
+                  </h2>
+                  <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-200">
+                    Zero-Floor Protected
+                  </span>
+                </div>
+                <p className="text-xs text-[#5C6B5A] mt-1">
+                  Automated trip deposit reconciliation, NETC FASTag toll deductions, excess kilometer charges, and instant bank refund disbursement.
+                </p>
+              </div>
+
+              {/* Status Counters */}
+              <div className="flex items-center gap-2 flex-wrap text-xs">
+                <div className="px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 flex items-center gap-2">
+                  <span className="text-amber-800 font-semibold">Held in Escrow:</span>
+                  <span className="font-extrabold text-amber-900">{formatINR(totalEscrowCapitalHeld)}</span>
+                </div>
+                <div className="px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center gap-2">
+                  <span className="text-emerald-800 font-semibold">Refunds Disbursed:</span>
+                  <span className="font-extrabold text-emerald-900">{formatINR(totalRefundsDisbursed)}</span>
+                </div>
+                <div className="px-3 py-1.5 rounded-xl bg-blue-50 border border-blue-200 flex items-center gap-2">
+                  <span className="text-blue-800 font-semibold">FASTag Tolls:</span>
+                  <span className="font-extrabold text-blue-900">{formatINR(totalFastagRecoveries)}</span>
+                </div>
+                {activeEscrowDisputes > 0 && (
+                  <div className="px-3 py-1.5 rounded-xl bg-rose-50 border border-rose-200 flex items-center gap-2">
+                    <span className="text-rose-800 font-semibold">Disputed Holds:</span>
+                    <span className="font-extrabold text-rose-900">{activeEscrowDisputes}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Filter Bar & Search */}
+            <div className="p-4 sm:p-5 bg-[#FAFBF9] border-b border-[#F0F4ED] flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => setEscrowFilter("all")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    escrowFilter === "all"
+                      ? "bg-[#50644E] text-white shadow-xs"
+                      : "bg-white text-[#5C6B5A] hover:bg-[#F0F4ED] border border-[#E8EFE5]"
+                  }`}
+                >
+                  All Settlements ({settlementRecords.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEscrowFilter("held_in_escrow")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    escrowFilter === "held_in_escrow"
+                      ? "bg-[#50644E] text-white shadow-xs"
+                      : "bg-white text-[#5C6B5A] hover:bg-[#F0F4ED] border border-[#E8EFE5]"
+                  }`}
+                >
+                  Held in Escrow ({settlementRecords.filter((s) => s.status === "held_in_escrow").length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEscrowFilter("refund_dispatched")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    escrowFilter === "refund_dispatched"
+                      ? "bg-[#50644E] text-white shadow-xs"
+                      : "bg-white text-[#5C6B5A] hover:bg-[#F0F4ED] border border-[#E8EFE5]"
+                  }`}
+                >
+                  Refunds Dispatched ({settlementRecords.filter((s) => s.status === "refund_dispatched").length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEscrowFilter("disputed_hold")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    escrowFilter === "disputed_hold"
+                      ? "bg-[#50644E] text-white shadow-xs"
+                      : "bg-white text-[#5C6B5A] hover:bg-[#F0F4ED] border border-[#E8EFE5]"
+                  }`}
+                >
+                  Disputed Holds ({activeEscrowDisputes})
+                </button>
+              </div>
+
+              <div className="relative w-full sm:w-72">
+                <Search className="w-4 h-4 text-[#829280] absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search booking ref, customer, or UTR..."
+                  value={escrowSearch}
+                  onChange={(e) => setEscrowSearch(e.target.value)}
+                  className="w-full pl-9 pr-3.5 py-2 bg-white rounded-xl border border-[#CFD8CD] text-xs font-medium text-[#172016] placeholder:text-[#829280] focus:outline-hidden focus:border-[#50644E]"
+                />
+              </div>
+            </div>
+
+            {/* Escrow Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-[#F0F4ED] bg-[#F8FAF7] text-[11px] font-black uppercase tracking-wider text-[#5C6B5A]">
+                    <th className="p-4 sm:pl-6">Booking &amp; Vehicle</th>
+                    <th className="p-4">Customer &amp; Dates</th>
+                    <th className="p-4">Deposit Held</th>
+                    <th className="p-4">Deductions Itemization</th>
+                    <th className="p-4">Net Refund &amp; Invariant</th>
+                    <th className="p-4">Disbursement Status</th>
+                    <th className="p-4 sm:pr-6 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#F0F4ED] text-xs">
+                  {settlementRecords
+                    .filter((s) => {
+                      const matchesFilter =
+                        escrowFilter === "all" ? true : s.status === escrowFilter;
+                      const q = escrowSearch.toLowerCase().trim();
+                      const matchesSearch =
+                        !q ||
+                        s.bookingRef.toLowerCase().includes(q) ||
+                        s.customerName.toLowerCase().includes(q) ||
+                        s.vehicleName.toLowerCase().includes(q) ||
+                        s.customerPhone.includes(q) ||
+                        s.paymentGatewayRef.toLowerCase().includes(q);
+                      return matchesFilter && matchesSearch;
+                    })
+                    .map((record) => {
+                      return (
+                        <tr
+                          key={record.id}
+                          className="hover:bg-[#FBFDFB] transition-colors"
+                        >
+                          {/* Booking & Vehicle */}
+                          <td className="p-4 sm:pl-6">
+                            <div className="font-mono font-extrabold text-[#172016] text-sm">
+                              {record.bookingRef}
+                            </div>
+                            <div className="font-semibold text-xs text-[#172016] mt-0.5">
+                              {record.vehicleName}
+                            </div>
+                            <div className="text-[11px] text-[#5C6B5A] flex items-center gap-1.5 mt-0.5">
+                              <span className="font-mono">{record.vehicleRegistration}</span>
+                              <span>•</span>
+                              <span>{record.hubName}</span>
+                            </div>
+                          </td>
+
+                          {/* Customer & Dates */}
+                          <td className="p-4">
+                            <div className="font-bold text-[#172016]">
+                              {record.customerName}
+                            </div>
+                            <div className="text-[11px] text-[#5C6B5A] mt-0.5">
+                              +91 {record.customerPhone}
+                            </div>
+                            <div className="text-[10px] text-[#829280] mt-0.5">
+                              {record.pickupDate} – {record.returnDate}
+                            </div>
+                          </td>
+
+                          {/* Deposit Held */}
+                          <td className="p-4">
+                            <div className="font-mono font-extrabold text-sm text-[#172016]">
+                              {formatINR(record.depositHeldINR)}
+                            </div>
+                            <span className="text-[10px] text-[#829280]">
+                              Secured in Escrow
+                            </span>
+                          </td>
+
+                          {/* Itemized Deductions */}
+                          <td className="p-4">
+                            <div className="space-y-0.5 text-[11px]">
+                              <div className="flex items-center justify-between gap-3">
+                                <span className="text-[#5C6B5A]">FASTag Tolls:</span>
+                                <span className="font-mono font-bold text-[#172016]">
+                                  {formatINR(record.fastagTollsINR)}
+                                </span>
+                              </div>
+                              {record.excessKmChargesINR > 0 && (
+                                <div className="flex items-center justify-between gap-3">
+                                  <span className="text-[#5C6B5A]">Excess Km ({record.excessKm} km):</span>
+                                  <span className="font-mono font-bold text-[#172016]">
+                                    {formatINR(record.excessKmChargesINR)}
+                                  </span>
+                                </div>
+                              )}
+                              {record.damageCleaningChargesINR > 0 && (
+                                <div className="flex items-center justify-between gap-3 text-rose-700">
+                                  <span>Damage / Detailing:</span>
+                                  <span className="font-mono font-bold">
+                                    {formatINR(record.damageCleaningChargesINR)}
+                                  </span>
+                                </div>
+                              )}
+                              <div className="pt-1 border-t border-[#F0F4ED] flex items-center justify-between gap-3 font-bold text-[10px] text-[#5C6B5A]">
+                                <span>Total Deducted:</span>
+                                <span className="font-mono">{formatINR(record.totalDeductionsINR)}</span>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Net Refund & Zero-Floor Invariant */}
+                          <td className="p-4">
+                            <div className="font-mono font-black text-sm text-emerald-700">
+                              {formatINR(record.netRefundINR)}
+                            </div>
+                            {record.zeroFloorApplied ? (
+                              <span className="inline-block mt-1 text-[10px] font-black uppercase tracking-wider text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-200">
+                                Zero-Floor Capped
+                              </span>
+                            ) : (
+                              <span className="inline-block mt-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                                Protected Refund
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Status */}
+                          <td className="p-4">
+                            {record.status === "refund_dispatched" && (
+                              <div>
+                                <span className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                  Refund Dispatched
+                                </span>
+                                <div className="text-[10px] font-mono text-[#829280] mt-1 truncate max-w-[150px]">
+                                  {record.paymentGatewayRef}
+                                </div>
+                              </div>
+                            )}
+                            {record.status === "held_in_escrow" && (
+                              <div>
+                                <span className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+                                  <Clock className="w-3.5 h-3.5 text-amber-600" />
+                                  Held in Escrow
+                                </span>
+                                <div className="text-[10px] text-[#829280] mt-1">
+                                  Pending disbursement
+                                </div>
+                              </div>
+                            )}
+                            {record.status === "disputed_hold" && (
+                              <div>
+                                <span className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full bg-rose-50 text-rose-800 border border-rose-200">
+                                  <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+                                  Disputed Hold
+                                </span>
+                                <div className="text-[10px] text-rose-700 font-semibold mt-1">
+                                  Audit required
+                                </div>
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Actions */}
+                          <td className="p-4 sm:pr-6 text-right">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenSettlement(record)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-[#F3F6F1] hover:bg-[#50644E] text-[#3D4D3B] hover:text-white transition-all border border-[#CFD8CD] hover:border-[#50644E] cursor-pointer shadow-2xs"
+                            >
+                              <Receipt className="w-3.5 h-3.5" />
+                              <span>Inspect Breakdown</span>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Empty state */}
+            {settlementRecords.filter((s) => {
+              const matchesFilter =
+                escrowFilter === "all" ? true : s.status === escrowFilter;
+              const q = escrowSearch.toLowerCase().trim();
+              const matchesSearch =
+                !q ||
+                s.bookingRef.toLowerCase().includes(q) ||
+                s.customerName.toLowerCase().includes(q) ||
+                s.vehicleName.toLowerCase().includes(q) ||
+                s.customerPhone.includes(q) ||
+                s.paymentGatewayRef.toLowerCase().includes(q);
+              return matchesFilter && matchesSearch;
+            }).length === 0 && (
+              <div className="p-12 text-center text-[#5C6B5A]">
+                <Landmark className="w-8 h-8 text-[#829280] mx-auto mb-2 opacity-50" />
+                <p className="font-bold text-sm">No settlement records matched your query.</p>
+                <p className="text-xs text-[#829280] mt-1">
+                  Try adjusting the filter status or clearing the search bar.
+                </p>
+              </div>
+            )}
           </div>
         )}
 
@@ -3642,6 +4141,300 @@ export default function MasterAdminPortalPage() {
                       </>
                     )}
                   </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Master Escrow & Financial Settlement Breakdown Modal */}
+        {inspectingSettlement && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+            <div className="bg-white rounded-3xl max-w-2xl w-full border border-[#E8EFE5] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
+              {/* Header */}
+              <div className="p-5 sm:p-6 bg-[#172016] text-white flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-emerald-400">
+                    <Landmark className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-base flex items-center gap-2">
+                      <span>Trip Escrow &amp; Financial Settlement</span>
+                      <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-400/30">
+                        {inspectingSettlement.status.replace(/_/g, " ").toUpperCase()}
+                      </span>
+                    </h3>
+                    <p className="text-xs text-white/60">
+                      Booking: {inspectingSettlement.bookingRef} • Customer: {inspectingSettlement.customerName}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInspectingSettlement(null);
+                    setEscrowFeedback(null);
+                  }}
+                  className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/80 hover:text-white transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Scrollable Content */}
+              <div className="p-5 sm:p-6 space-y-5 overflow-y-auto flex-1 text-xs">
+                {/* Trip Snapshot Card */}
+                <div className="p-4 bg-[#F8FAF7] rounded-2xl border border-[#E8EFE5] grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div>
+                    <span className="text-[#829280] block text-[10px] uppercase font-bold">Vehicle</span>
+                    <strong className="text-[#172016]">{inspectingSettlement.vehicleName}</strong>
+                    <span className="block text-[10px] font-mono text-[#5C6B5A]">
+                      {inspectingSettlement.vehicleRegistration}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[#829280] block text-[10px] uppercase font-bold">Operating Hub</span>
+                    <strong className="text-[#172016]">{inspectingSettlement.hubName}</strong>
+                  </div>
+                  <div>
+                    <span className="text-[#829280] block text-[10px] uppercase font-bold">Rental Window</span>
+                    <span className="text-[#172016] font-medium">
+                      {inspectingSettlement.pickupDate} – {inspectingSettlement.returnDate}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[#829280] block text-[10px] uppercase font-bold">Customer Contact</span>
+                    <span className="font-mono text-[#172016]">+91 {inspectingSettlement.customerPhone}</span>
+                  </div>
+                </div>
+
+                {/* Financial Ledger Calculation Card */}
+                <div className="p-4 rounded-2xl border border-[#E8EFE5] bg-white space-y-3 shadow-2xs">
+                  <div className="flex items-center justify-between border-b border-[#F0F4ED] pb-2.5">
+                    <span className="font-bold text-xs uppercase tracking-wider text-[#5C6B5A]">
+                      Escrow Reconciliation Breakdown
+                    </span>
+                    <span className="font-mono font-bold text-xs text-[#172016]">
+                      Held: {formatINR(inspectingSettlement.depositHeldINR)}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2">
+                    {/* FASTag Deductions */}
+                    <div className="p-3 bg-[#FAFBF9] rounded-xl border border-[#E8EFE5] space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-[#172016]">
+                          NETC FASTag Expressway Toll Deductions
+                        </span>
+                        <span className="font-mono font-bold text-rose-700">
+                          - {formatINR(inspectingSettlement.fastagTollsINR)}
+                        </span>
+                      </div>
+                      {inspectingSettlement.tollPlazas.length > 0 ? (
+                        <div className="divide-y divide-[#F0F4ED] text-[10px] text-[#5C6B5A] pt-1">
+                          {inspectingSettlement.tollPlazas.map((tp, idx) => (
+                            <div key={idx} className="py-1 flex items-center justify-between">
+                              <div>
+                                <span className="font-semibold text-[#172016]">{tp.plazaName}</span>
+                                <span className="text-[#829280] ml-1.5 font-mono">({tp.timestamp})</span>
+                              </div>
+                              <span className="font-mono font-bold">{formatINR(tp.tollFeeINR)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[10px] text-[#829280]">
+                          Zero expressway tolls traversed during reservation.
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Excess Km Deductions */}
+                    {inspectingSettlement.excessKmChargesINR > 0 && (
+                      <div className="p-3 bg-[#FAFBF9] rounded-xl border border-[#E8EFE5] flex items-center justify-between">
+                        <div>
+                          <span className="font-bold text-[#172016]">Excess Kilometers Beyond Quota</span>
+                          <span className="block text-[10px] text-[#829280]">
+                            {inspectingSettlement.excessKm} km over limit @ {formatINR(inspectingSettlement.excessKmRateINR)}/km
+                          </span>
+                        </div>
+                        <span className="font-mono font-bold text-rose-700">
+                          - {formatINR(inspectingSettlement.excessKmChargesINR)}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Damage & Detailing Deductions */}
+                    <div className="p-3 bg-[#FAFBF9] rounded-xl border border-[#E8EFE5] space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="font-bold text-[#172016]">Damage / Detailing Penalty</span>
+                          {inspectingSettlement.damageReason && (
+                            <span className="block text-[10px] text-[#829280]">
+                              Reason: {inspectingSettlement.damageReason}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {inspectingSettlement.status === "disputed_hold" ? (
+                            <div className="relative w-28">
+                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-[#829280]">
+                                ₹
+                              </span>
+                              <input
+                                type="number"
+                                min={0}
+                                step={100}
+                                value={adjustedDamage}
+                                onChange={(e) => setAdjustedDamage(Number(e.target.value))}
+                                className="w-full pl-6 pr-2 py-1 bg-white rounded-lg border border-[#CFD8CD] font-mono text-xs font-bold text-rose-700 focus:outline-hidden"
+                              />
+                            </div>
+                          ) : (
+                            <span className="font-mono font-bold text-rose-700">
+                              - {formatINR(inspectingSettlement.damageCleaningChargesINR)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Mathematical Zero-Floor Display */}
+                  <div className="p-3.5 bg-[#F0F4ED] rounded-xl border border-[#D5E2D1] space-y-1">
+                    <div className="flex items-center justify-between font-bold text-xs">
+                      <span className="text-[#3D4D3B]">Zero-Floor Formula Reconciliation:</span>
+                      <span className="font-mono text-[#172016]">
+                        max(0, {formatINR(inspectingSettlement.depositHeldINR)} - {formatINR(
+                          inspectingSettlement.fastagTollsINR +
+                          inspectingSettlement.excessKmChargesINR +
+                          (inspectingSettlement.status === "disputed_hold" ? adjustedDamage : inspectingSettlement.damageCleaningChargesINR)
+                        )})
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between pt-1 border-t border-[#D5E2D1]">
+                      <span className="font-extrabold text-[#172016] text-sm">
+                        Net Refund Authorized:
+                      </span>
+                      <span className="font-mono font-black text-base text-emerald-800">
+                        {formatINR(
+                          Math.max(
+                            0,
+                            inspectingSettlement.depositHeldINR -
+                              (inspectingSettlement.fastagTollsINR +
+                                inspectingSettlement.excessKmChargesINR +
+                                (inspectingSettlement.status === "disputed_hold"
+                                  ? adjustedDamage
+                                  : inspectingSettlement.damageCleaningChargesINR))
+                          )
+                        )}
+                      </span>
+                    </div>
+                    {inspectingSettlement.zeroFloorApplied && (
+                      <p className="text-[10px] text-purple-700 font-semibold pt-0.5">
+                        Permanent Directive Protection: Total deductions exceed held deposit. Customer balance capped at ₹0 (no negative debits).
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Dispute / Notes Input */}
+                {inspectingSettlement.status === "disputed_hold" && (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-[#172016] block">
+                      Dispute Adjudication Reason &amp; Audit Log Justification
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={disputeResolutionNotes}
+                      onChange={(e) => setDisputeResolutionNotes(e.target.value)}
+                      placeholder="Explain adjustments made to damage charges or waive details..."
+                      className="w-full px-3.5 py-2 rounded-xl border border-[#CFD8CD] focus:border-[#50644E] text-xs font-medium text-[#172016] bg-white outline-hidden"
+                    />
+                  </div>
+                )}
+
+                {/* Feedback */}
+                {escrowFeedback && (
+                  <div
+                    className={`p-3 rounded-xl text-xs font-semibold flex items-center gap-2 ${
+                      escrowFeedback.type === "success"
+                        ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                        : "bg-red-50 text-red-800 border border-red-200"
+                    }`}
+                  >
+                    {escrowFeedback.type === "success" ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                    )}
+                    <span>{escrowFeedback.message}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer Controls */}
+              <div className="p-4 sm:p-5 bg-[#FAFBF9] border-t border-[#E8EFE5] flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+                <div className="text-[11px] text-[#5C6B5A]">
+                  Gateway Ref: <strong className="font-mono text-[#172016]">{inspectingSettlement.paymentGatewayRef}</strong>
+                </div>
+
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setInspectingSettlement(null);
+                      setEscrowFeedback(null);
+                    }}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-[#5C6B5A] hover:bg-[#F3F6F1] transition-colors cursor-pointer"
+                  >
+                    Close
+                  </button>
+
+                  {inspectingSettlement.status === "disputed_hold" ? (
+                    <button
+                      type="button"
+                      onClick={handleResolveDispute}
+                      disabled={isProcessingEscrow}
+                      className="inline-flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-extrabold bg-rose-700 hover:bg-rose-800 text-white shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      {isProcessingEscrow ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>Recalibrating...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Scale className="w-3.5 h-3.5" />
+                          <span>Resolve Dispute &amp; Recalibrate</span>
+                        </>
+                      )}
+                    </button>
+                  ) : inspectingSettlement.status === "held_in_escrow" ? (
+                    <button
+                      type="button"
+                      onClick={() => handleDispatchRefund(inspectingSettlement)}
+                      disabled={isProcessingEscrow}
+                      className="inline-flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-extrabold bg-[#50644E] hover:bg-[#3D4D3B] text-white shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      {isProcessingEscrow ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>Dispatching via UPI...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Dispatch Bank Refund ({formatINR(inspectingSettlement.netRefundINR)})</span>
+                        </>
+                      )}
+                    </button>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      Disbursed to Customer
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
