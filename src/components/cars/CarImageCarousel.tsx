@@ -114,7 +114,7 @@ export const CarImageCarousel: React.FC<CarImageCarouselProps> = ({
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        className="relative w-full aspect-[16/10] sm:aspect-[16/9] flex items-center justify-center max-w-4xl mx-auto cursor-grab active:cursor-grabbing"
+        className="relative w-full aspect-[16/10] sm:aspect-[16/9] flex items-center justify-center max-w-4xl mx-auto cursor-grab active:cursor-grabbing touch-pan-y"
       >
         <Image
           key={items[currentIndex]?.url}

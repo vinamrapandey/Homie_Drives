@@ -16,7 +16,7 @@ function PlanContent() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 space-y-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 pb-28 md:pb-12 space-y-6">
       {/* Top Editorial Header matching Mobbin Ro Screen 3 */}
       <div className="relative pt-6 pb-4 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-[#E2EDE0]/70 via-[#F3F6F1] to-transparent">
         <div className="max-w-3xl">

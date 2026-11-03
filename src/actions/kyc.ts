@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getUserRole } from "@/lib/supabase/roles";
 import { KYCVerificationStatus, KYCRiskLevel } from "@/types/kyc";
+import { INITIAL_KYC_RECORDS } from "@/data/kycRecords";
 
 // ==============================================================================
 // Zod Schema: Review Customer KYC & Identity Dossier
@@ -76,6 +77,16 @@ export async function reviewCustomerKYCAction(
       }
     } catch {
       // Demo environment fallback
+    }
+
+    // In-memory update for instant admin reactivity
+    const memoryRecord = INITIAL_KYC_RECORDS.find((r) => r.id === validated.kycId);
+    if (memoryRecord) {
+      memoryRecord.digilockerStatus = validated.status;
+      memoryRecord.riskLevel = validated.riskLevel;
+      memoryRecord.reviewNotes = validated.notes;
+      memoryRecord.reviewedBy = user?.email || "Master Admin";
+      memoryRecord.reviewedAt = new Date().toISOString();
     }
 
     // 3. Revalidate Paths
@@ -155,6 +166,13 @@ export async function requestKYCReuploadAction(input: RequestKYCReuploadInput) {
       }
     } catch {
       // Demo environment fallback
+    }
+
+    // In-memory update for instant admin reactivity
+    const memoryRecord = INITIAL_KYC_RECORDS.find((r) => r.id === validated.kycId);
+    if (memoryRecord) {
+      memoryRecord.digilockerStatus = "flagged";
+      memoryRecord.reviewNotes = `RE-UPLOAD REQUESTED: ${validated.reason}`;
     }
 
     revalidatePath("/admin");
@@ -320,6 +338,16 @@ export async function submitCustomerKYCAction(input: SubmitCustomerKYCInput) {
       }
     } catch {
       // Demo environment fallback
+    }
+
+    // In-memory update for instant admin reactivity
+    const existingIndex = INITIAL_KYC_RECORDS.findIndex(
+      (r) => r.drivingLicense.dlNumber.toUpperCase() === validated.dlNumber.toUpperCase()
+    );
+    if (existingIndex >= 0) {
+      INITIAL_KYC_RECORDS[existingIndex] = kycRecord as any;
+    } else {
+      INITIAL_KYC_RECORDS.unshift(kycRecord as any);
     }
 
     revalidatePath("/profile");

@@ -74,7 +74,7 @@ export default function HomePage() {
   ];
 
   return (
-    <div className="space-y-10 sm:space-y-14">
+    <div className="space-y-10 sm:space-y-14 pb-28 md:pb-12">
       {/* =========================================================================
           SCREEN 2: Mobbin Ro Atmospheric Hero Card with Rounded Bottom Corners
           ========================================================================= */}

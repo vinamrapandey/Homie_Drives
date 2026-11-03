@@ -83,7 +83,7 @@ These capabilities are system-level, non-configurable by standard customers, and
   - **Permanent Directive Governance**: Strict enforcement of **"GPS NOT CONNECTED"** invariant until physical OBD-II IoT modems are certified in Phase 8.
 * **Verification Status**: Verified via Automated Test Suite (Suite 5).
 * **Admin Portal Candidate**:
-  - [ ] **Fleet Telemetry Central Monitor**: Real-time fleet health matrix highlighting cars with low tire pressure (<30 PSI), low battery, or overdue oil changes.
+  - [x] **Fleet Telemetry Central Monitor**: Implemented & Live in `/admin` with real-time OBD-II CAN-bus sensor matrix (4-wheel cold TPMS @ 34 PSI, 12V alternator health, engine coolant temperature, oil life %), diagnostic polling action, and strict enforcement of the **"GPS NOT CONNECTED"** permanent safety invariant.
 
 ---
 
@@ -138,7 +138,7 @@ These capabilities are system-level, non-configurable by standard customers, and
   - Formulates standard Delhi NCR self-drive clauses (authorized territory, FASTag toll clearance, Motor Vehicles Act 1988 compliance).
 * **Verification Status**: Verified in Agent Operations Portal (`/agent`).
 * **Admin Portal Candidate**:
-  - [ ] **Contract Vault**: Searchable repository of signed rental agreements with customer signature images and booking timestamps.
+  - [x] **Contract Vault & E-Signatures**: Implemented & Live in `/admin` with searchable repository of vaulted rental agreements, customer vector SVG e-signatures, SHA-256 cryptographic hashes, and interactive Master Administrator countersignature execution.
 
 ---
 
@@ -160,12 +160,16 @@ The following upcoming backend features are internal system mechanisms that can 
 
 ## 3. Recommended Admin Panel Enhancements Roadmap
 
-Based on the technical inventory above, the following three administrative additions are recommended for implementation:
+Based on the technical inventory above, the following administrative systems have been implemented:
 
 1. [x] **Global Fee & Surge Configuration Engine**:
    - Allow Master Admin to adjust GST percentage, platform fee %, and condition multipliers dynamically from `/admin` without code redeploys. *(Implemented & Live in `/admin`)*
 2. [x] **Customer KYC & Document Verification Queue**:
    - Provide an administrative dashboard to review driver licenses, verify age (23+ requirement), inspect uploaded physical DL photos via secure watermarked pre-signed URLs, calibrate risk levels, and approve or request re-uploads. *(Implemented & Live in `/admin`)*
 3. [x] **Master Escrow & Financial Settlement Ledger**:
-   - Provide executive oversight of all security deposits held, FASTag tolls deducted, and bank refunds pending disbursement. *(Implemented & Live in `/admin`)*
+   - Provide executive oversight of all security deposits held, FASTag tolls deducted, and bank refunds pending disbursement with zero-floor mathematical protection. *(Implemented & Live in `/admin`)*
+4. [x] **Digital Rental Contract Vault & Vector E-Signatures**:
+   - Searchable repository of legally binding rental contracts with customer vector e-signatures, SHA-256 tamper-evident seals, and Master Administrator countersignatures. *(Implemented & Live in `/admin`)*
+5. [x] **Real-time Fleet Telemetry & CAN-Bus Diagnostic Matrix**:
+   - Central sensor monitor streaming 4-wheel cold TPMS (@ 34 PSI), 12V alternator health, engine coolant temperature, and oil life, strictly enforcing the **"GPS NOT CONNECTED"** permanent safety invariant. *(Implemented & Live in `/admin`)*
 

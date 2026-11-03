@@ -575,7 +575,7 @@ export const CarDetailView: React.FC<CarDetailViewProps> = ({
 
       {/* Sticky Mobile Floating Booking Bar */}
       {showStickyBar && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-2xl border-t border-[#DFE6DC] px-4 py-3 sm:hidden shadow-[0_-12px_32px_rgba(23,32,22,0.14)] transition-all duration-300 animate-in slide-in-from-bottom">
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-2xl border-t border-[#DFE6DC] px-4 pt-3 pb-[max(0.75rem,calc(0.5rem+env(safe-area-inset-bottom,0px)))] sm:hidden shadow-[0_-12px_32px_rgba(23,32,22,0.14)] transition-all duration-300 animate-in slide-in-from-bottom">
           <div className="flex items-center justify-between gap-2 max-w-md mx-auto">
             <div className="min-w-0 flex-1">
               <p className="text-[10px] uppercase font-bold tracking-wider text-[#5C6B5A] truncate">

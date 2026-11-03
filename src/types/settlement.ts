@@ -40,3 +40,4 @@ export interface EscrowSettlementRecord {
   settlementNotes?: string;
   createdAt: string;
 }
+

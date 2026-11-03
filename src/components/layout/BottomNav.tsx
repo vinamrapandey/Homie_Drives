@@ -35,9 +35,9 @@ export const BottomNav: React.FC = () => {
   return (
     <nav
       aria-label="Mobile Navigation"
-      className="fixed bottom-3.5 left-0 right-0 z-50 px-4 md:hidden flex justify-center pointer-events-none"
+      className="fixed bottom-[max(0.875rem,calc(0.5rem+env(safe-area-inset-bottom,0px)))] left-0 right-0 z-50 px-3 md:hidden flex justify-center pointer-events-none"
     >
-      <div className="pointer-events-auto flex items-center justify-around bg-white/95 backdrop-blur-2xl border border-white/90 shadow-[0_14px_36px_rgba(23,32,22,0.12)] rounded-full px-2 py-1.5 w-full max-w-[370px] transition-all">
+      <div className="pointer-events-auto flex items-center justify-around bg-white/95 backdrop-blur-2xl border border-white/90 shadow-[0_14px_36px_rgba(23,32,22,0.12)] rounded-full px-1.5 py-1.5 w-full max-w-[370px] transition-all">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const isActive =
