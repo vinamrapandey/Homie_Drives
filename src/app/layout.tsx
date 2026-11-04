@@ -6,6 +6,7 @@ import { BottomNav } from "@/components/layout/BottomNav";
 import { Footer } from "@/components/layout/Footer";
 import { DisclaimerBanner } from "@/components/common/DisclaimerBanner";
 import { QuickBookingConcierge } from "@/components/common/QuickBookingConcierge";
+import { PwaInstallPrompt } from "@/components/common/PwaInstallPrompt";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -18,9 +19,15 @@ export const metadata: Metadata = {
   title: "Homie Drives — Mobile-First Car Rentals | Delhi NCR",
   description:
     "Affordable, flexible self-drive car rentals in Delhi NCR from ₹2,499 to ₹24,999/day. City cruisers, executive sedans, and supercar experiences with doorstep delivery and same pickup/return hubs.",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Homie Drives",
+  },
   icons: {
     icon: "/homie.drives.png",
-    apple: "/homie.drives.png",
+    apple: "/images/logo/homie_drives.png",
   },
   keywords: [
     "Car rental Delhi NCR",
@@ -51,6 +58,7 @@ export default function RootLayout({
         <DisclaimerBanner />
         <Navbar />
         <main className="flex-1 pb-20 md:pb-0">{children}</main>
+        <PwaInstallPrompt />
         <QuickBookingConcierge />
         <Footer />
         <BottomNav />

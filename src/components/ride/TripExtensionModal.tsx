@@ -267,3 +267,4 @@ export const TripExtensionModal: React.FC<TripExtensionModalProps> = ({
     </div>
   );
 };
+
