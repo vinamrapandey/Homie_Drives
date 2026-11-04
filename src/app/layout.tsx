@@ -4,7 +4,6 @@ import "./globals.css";
 import { Navbar } from "@/components/layout/Navbar";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { Footer } from "@/components/layout/Footer";
-import { DisclaimerBanner } from "@/components/common/DisclaimerBanner";
 import { QuickBookingConcierge } from "@/components/common/QuickBookingConcierge";
 import { PwaInstallPrompt } from "@/components/common/PwaInstallPrompt";
 
@@ -55,7 +54,6 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${plusJakartaSans.variable} font-sans`}>
       <body className="min-h-screen bg-[#F3F6F1] text-[#172016] flex flex-col antialiased selection:bg-[#D4E0D1] selection:text-[#172016]">
-        <DisclaimerBanner />
         <Navbar />
         <main className="flex-1 pb-20 md:pb-0">{children}</main>
         <PwaInstallPrompt />
