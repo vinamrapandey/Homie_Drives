@@ -1,5 +1,6 @@
 -- ==============================================================================
--- HOMIE DRIVES — SEED DATA (DELHI NCR HUBS & FLEET)
+-- HOMIE DRIVES — SEED DATA (DELHI NCR HUBS, FLEET, PROFILES & ROLES)
+-- Target Database: Supabase PostgreSQL
 -- ==============================================================================
 
 -- 1. Insert Delhi NCR Operational Hubs
@@ -141,3 +142,103 @@ ON CONFLICT (slug) DO UPDATE SET
     base_daily_price_inr = EXCLUDED.base_daily_price_inr,
     operational_status = EXCLUDED.operational_status;
 
+-- 3. Insert Operational Agents
+-- Note: When users sign up via Supabase Auth, their id maps to public.profiles.
+-- The following seed records establish baseline agents linked to hubs.
+INSERT INTO public.agents (id, profile_id, hub_id, badge_number, employee_code, is_active)
+VALUES
+    (
+        'd0000000-0000-0000-0000-000000000001',
+        '00000000-0000-0000-0000-000000000002',
+        'a0000000-0000-0000-0000-000000000003', -- Cyber Hub
+        'HD-AGT-0102',
+        'HD-AGT-CYB-01',
+        TRUE
+    ),
+    (
+        'd0000000-0000-0000-0000-000000000002',
+        '00000000-0000-0000-0000-000000000003',
+        'a0000000-0000-0000-0000-000000000001', -- Aerocity Hub
+        'HD-AGT-0104',
+        'HD-AGT-AER-02',
+        TRUE
+    )
+ON CONFLICT (badge_number) DO NOTHING;
+
+-- 4. Sample Digital Contracts
+INSERT INTO public.rental_contracts (
+    id, contract_number, booking_ref, customer_name, customer_email, customer_phone,
+    masked_aadhaar, dl_number, vehicle_name, registration_number, hub_name,
+    pickup_date, return_date, total_days, daily_rate_inr, deposit_held_inr, total_amount_inr,
+    terms_version, customer_signature_svg, countersigned_by_admin, admin_signature_svg,
+    admin_signer_name, status, document_hash_sha256, ip_address, signed_at, countersigned_at
+)
+VALUES (
+    'e0000000-0000-0000-0000-000000000001',
+    'HD-CTR-2026-DEL-0091',
+    'HD-DEL-8924',
+    'Arjun Sharma',
+    'arjun.sharma@example.com',
+    '+91 98112 34567',
+    'XXXXXXXX8492',
+    'DL-04-2018-0091823',
+    'Mahindra Thar Roxx 4x4 AX7L',
+    'DL 01 AB 8924',
+    'Aerocity Hub (IGI Airport)',
+    '2026-11-15',
+    '2026-11-18',
+    3,
+    4499,
+    5000,
+    18497,
+    'Homie-Master-Rental-Agreement-v2.4-NCR',
+    'M 20 50 Q 50 15, 80 45 T 140 40 Q 180 20, 210 55 T 260 45',
+    TRUE,
+    'M 30 40 Q 70 65, 120 30 T 190 50 Q 220 20, 270 40',
+    'Devansh Singhania (Master Admin)',
+    'countersigned',
+    'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+    '122.161.49.204 (Airtel Broadband Delhi)',
+    '2026-10-30T10:15:32Z',
+    '2026-10-30T11:00:14Z'
+)
+ON CONFLICT (contract_number) DO NOTHING;
+
+-- 5. Sample Escrow Settlements
+INSERT INTO public.settlements (
+    id, booking_ref, customer_name, customer_phone, customer_email,
+    vehicle_name, vehicle_registration, hub_name, pickup_date, return_date,
+    deposit_held_inr, fastag_tolls_inr, toll_plazas, excess_km, excess_km_rate_inr,
+    excess_km_charges_inr, damage_cleaning_charges_inr, total_deductions_inr,
+    net_refund_inr, zero_floor_applied, status, payment_gateway_ref, settled_at,
+    settled_by, settlement_notes, created_at
+)
+VALUES (
+    'f0000000-0000-0000-0000-000000000001',
+    '#HD-DEL-8924',
+    'Arjun Sharma',
+    '9811234567',
+    'arjun.sharma@example.com',
+    'Aston Martin Vantage V8',
+    'DL-01-HD-2025',
+    'Aerocity Hub (IGI Airport)',
+    '14 Nov 2026',
+    '17 Nov 2026',
+    15000,
+    450,
+    '[{"plazaName": "Kherki Daula Plaza", "highwayName": "NH-48 Delhi-Jaipur Highway", "timestamp": "15 Nov 2026, 10:14", "tollFeeINR": 85}, {"plazaName": "DND Flyway Entry", "highwayName": "DND Express Corridor", "timestamp": "16 Nov 2026, 17:40", "tollFeeINR": 65}, {"plazaName": "Manesar Toll Plaza", "highwayName": "Western Peripheral Expressway (KMP)", "timestamp": "16 Nov 2026, 19:20", "tollFeeINR": 300}]'::jsonb,
+    0,
+    35,
+    0,
+    0,
+    450,
+    14550,
+    FALSE,
+    'refund_dispatched',
+    'UPI-UTR-20261117-918204',
+    '2026-11-17T18:45:00Z',
+    'Rohit Verma (Agent HD-AGT-0104)',
+    'Pristine return. Odometer delta within daily 300km allowance. FASTag tolls settled via NETC.',
+    '2026-11-14T09:00:00Z'
+)
+ON CONFLICT (booking_ref) DO NOTHING;

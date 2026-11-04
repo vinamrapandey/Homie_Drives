@@ -8,7 +8,8 @@
     "build:webpack": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
-    "test": "node scripts/verify-e2e-lifecycle.mjs"
+    "test": "node scripts/verify-e2e-lifecycle.mjs && node scripts/verify-supabase-setup.mjs",
+    "test:supabase": "node scripts/verify-supabase-setup.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
