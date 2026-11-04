@@ -83,3 +83,29 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Print optimization for GST Tax Invoices and Settlement Statements */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  body * {
+    visibility: hidden;
+  }
+  #printable-tax-invoice,
+  #printable-tax-invoice * {
+    visibility: visible;
+  }
+  #printable-tax-invoice {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 24px !important;
+    background: white !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+}

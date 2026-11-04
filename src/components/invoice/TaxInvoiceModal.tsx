@@ -107,6 +107,7 @@ export const TaxInvoiceModal: React.FC<TaxInvoiceModalProps> = ({
         {/* Printable Invoice Body */}
         <div
           ref={invoiceRef}
+          id="printable-tax-invoice"
           className="p-6 sm:p-8 overflow-y-auto space-y-6 text-[#172016] print:p-0 print:space-y-4 print:text-xs"
         >
           {/* Header & Brand Identity */}

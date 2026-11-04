@@ -209,3 +209,4 @@ export function formatAsDigiLockerKycRecord(
     dlImageUrl: cardImageUrl,
   };
 }
+

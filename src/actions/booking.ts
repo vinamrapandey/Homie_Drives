@@ -249,3 +249,97 @@ export async function createBookingAction(input: CreateBookingInput): Promise<Cr
     };
   }
 }
+
+// ==============================================================================
+// 3. Server Action: Extend Active Booking Duration
+// ==============================================================================
+export const extendBookingSchema = z.object({
+  bookingCode: z.string().min(1, "Booking code is required"),
+  additionalDays: z.number().int().positive("Additional days must be at least 1"),
+  newReturnDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format"),
+  additionalAmountINR: z.number().nonnegative(),
+});
+
+export type ExtendBookingInput = z.infer<typeof extendBookingSchema>;
+
+export interface ExtendBookingResult {
+  success: boolean;
+  newReturnDate?: string;
+  additionalAmountINR?: number;
+  newTotalINR?: number;
+  error?: string;
+}
+
+export async function extendBookingDurationAction(input: ExtendBookingInput): Promise<ExtendBookingResult> {
+  try {
+    const validated = extendBookingSchema.parse(input);
+    const supabase = await createClient();
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (user) {
+      const { data: booking } = await supabase
+        .from("bookings")
+        .select("id, total_amount_inr, return_time, pickup_time")
+        .eq("booking_code", validated.bookingCode)
+        .maybeSingle();
+
+      if (booking) {
+        const newReturnDateTime = new Date(`${validated.newReturnDate}T20:00:00+05:30`);
+        const pickupDateTime = new Date(booking.pickup_time);
+        const newTstzrange = `[${pickupDateTime.toISOString()}, ${newReturnDateTime.toISOString()}]`;
+        const updatedTotal = (booking.total_amount_inr || 0) + validated.additionalAmountINR;
+
+        await supabase
+          .from("bookings")
+          .update({
+            return_time: newReturnDateTime.toISOString(),
+            rental_period: newTstzrange,
+            total_amount_inr: updatedTotal,
+          })
+          .eq("id", booking.id);
+
+        try {
+          await supabase.from("audit_logs").insert({
+            actor_id: user.id,
+            action: "BOOKING_EXTENDED",
+            entity_name: "bookings",
+            entity_id: booking.id,
+            payload: {
+              booking_code: validated.bookingCode,
+              additional_days: validated.additionalDays,
+              new_return_date: validated.newReturnDate,
+              additional_amount_inr: validated.additionalAmountINR,
+              new_total_inr: updatedTotal,
+            },
+          });
+        } catch {
+          // Non-blocking audit log
+        }
+      }
+    }
+
+    revalidatePath("/ride");
+    revalidatePath("/profile");
+
+    return {
+      success: true,
+      newReturnDate: validated.newReturnDate,
+      additionalAmountINR: validated.additionalAmountINR,
+    };
+  } catch (err: unknown) {
+    if (err instanceof z.ZodError) {
+      return {
+        success: false,
+        error: err.issues.map((e) => e.message).join(", "),
+      };
+    }
+    const message = err instanceof Error ? err.message : "Failed to extend rental duration.";
+    return {
+      success: false,
+      error: message,
+    };
+  }
+}

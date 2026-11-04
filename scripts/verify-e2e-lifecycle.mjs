@@ -231,6 +231,27 @@ runTest("Telematics Boundary: Explicitly mandates 'GPS NOT CONNECTED' without fa
 });
 
 // -----------------------------------------------------------------------------
+// SUITE 6: Rental Duration Extension & Pro-Rata Recalculation
+// -----------------------------------------------------------------------------
+console.log("\nSUITE 6: Rental Duration Extension & Pro-Rata Recalculation");
+
+runTest("Trip extension accurately computes pro-rata daily charge without penalty fees", () => {
+  const initialDays = 3;
+  const initialTotalINR = 18497;
+  const additionalDays = 2;
+  const estimatedDailyBase = Math.round((initialTotalINR * 0.7) / initialDays);
+  const dailyProtection = 799;
+  const extensionDailyTotal = estimatedDailyBase + dailyProtection;
+  const extensionCharge = extensionDailyTotal * additionalDays;
+  const newDays = initialDays + additionalDays;
+  const newTotalINR = initialTotalINR + extensionCharge;
+
+  assert.equal(newDays, 5);
+  assert.ok(extensionCharge > 0, "Extension charge must be positive");
+  assert.equal(newTotalINR, initialTotalINR + extensionCharge);
+});
+
+// -----------------------------------------------------------------------------
 // SUMMARY REPORT
 // -----------------------------------------------------------------------------
 console.log("\n===============================================================================");

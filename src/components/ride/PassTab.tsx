@@ -15,6 +15,7 @@ import { useUserBookings, mapBookingToActivePass } from "@/lib/supabase/bookings
 import { AuthModal } from "@/components/auth/AuthModal";
 import { TaxInvoiceModal, InvoiceData } from "@/components/invoice/TaxInvoiceModal";
 import { FleetTelemetryDiagnosticsModal } from "@/components/common/FleetTelemetryDiagnosticsModal";
+import { TripExtensionModal } from "@/components/ride/TripExtensionModal";
 import { DEMO_CARS } from "@/data/cars";
 import {
   Ticket,
@@ -67,6 +68,9 @@ export const PassTab: React.FC = () => {
 
   // Fleet Telematics Diagnostics Modal
   const [isDiagnosticsModalOpen, setIsDiagnosticsModalOpen] = useState(false);
+
+  // Trip Extension Modal
+  const [isExtensionModalOpen, setIsExtensionModalOpen] = useState(false);
 
   // Copy to clipboard helper
   const handleCopy = (text: string, fieldName: string) => {
@@ -419,17 +423,28 @@ export const PassTab: React.FC = () => {
                   </p>
                 </div>
 
-                <div className="bg-[#F8FAF7] p-3.5 rounded-2xl border border-[#E8EFE5]">
-                  <span className="text-[11px] font-bold text-[#829280] uppercase tracking-wider block flex items-center gap-1 mb-1">
-                    <Calendar className="w-3.5 h-3.5 text-[#50644E]" />
-                    Rental Schedule ({activePass.days} Days)
-                  </span>
-                  <p className="font-bold text-sm text-[#172016]">
-                    {activePass.pickupDate} → {activePass.returnDate}
-                  </p>
-                  <p className="text-[11px] text-[#5C6B5A] mt-0.5">
-                    Handover from {activePass.pickupTime} • Return by {activePass.returnTime}
-                  </p>
+                <div className="bg-[#F8FAF7] p-3.5 rounded-2xl border border-[#E8EFE5] flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[11px] font-bold text-[#829280] uppercase tracking-wider flex items-center gap-1">
+                        <Calendar className="w-3.5 h-3.5 text-[#50644E]" />
+                        Rental Schedule ({activePass.days} Days)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setIsExtensionModalOpen(true)}
+                        className="text-[10px] font-bold text-[#50644E] bg-white border border-[#CAD8C6] hover:bg-[#F3F6F1] px-2 py-0.5 rounded-md transition-colors cursor-pointer shadow-2xs"
+                      >
+                        Extend Trip +
+                      </button>
+                    </div>
+                    <p className="font-bold text-sm text-[#172016]">
+                      {activePass.pickupDate} → {activePass.returnDate}
+                    </p>
+                    <p className="text-[11px] text-[#5C6B5A] mt-0.5">
+                      Handover from {activePass.pickupTime} • Return by {activePass.returnTime}
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -837,6 +852,20 @@ export const PassTab: React.FC = () => {
           }
           isOpen={isDiagnosticsModalOpen}
           onClose={() => setIsDiagnosticsModalOpen(false)}
+        />
+      )}
+
+      {/* Trip Extension Modal */}
+      {isExtensionModalOpen && (
+        <TripExtensionModal
+          isOpen={isExtensionModalOpen}
+          onClose={() => setIsExtensionModalOpen(false)}
+          activePass={activePass}
+          onPassUpdated={(updatedPass) => {
+            saveActivePass(updatedPass);
+            setFobActionToast(`Trip extended to ${updatedPass.returnDate}! New schedule synced.`);
+            setTimeout(() => setFobActionToast(null), 4000);
+          }}
         />
       )}
     </div>
