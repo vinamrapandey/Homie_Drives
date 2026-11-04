@@ -81,7 +81,7 @@ export const PwaInstallPrompt: React.FC = () => {
   }
 
   return (
-    <div className="fixed bottom-24 sm:bottom-6 left-4 right-4 max-w-md mx-auto z-40 animate-in slide-in-from-bottom-4 duration-300">
+    <div className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] sm:bottom-6 left-3 right-3 sm:left-4 sm:right-4 max-w-md mx-auto z-40 animate-in slide-in-from-bottom-4 duration-300 print:hidden">
       <div className="bg-[#172016] text-white p-4 rounded-[24px] shadow-homie-lg border border-[#2D3A2B] flex items-center justify-between gap-3 relative overflow-hidden">
         {/* Subtle background glow */}
         <div className="absolute -right-8 -top-8 w-24 h-24 bg-[#50644E]/30 rounded-full blur-xl pointer-events-none" />
@@ -138,3 +138,4 @@ export const PwaInstallPrompt: React.FC = () => {
     </div>
   );
 };
+

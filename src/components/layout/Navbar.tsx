@@ -34,8 +34,8 @@ export const Navbar: React.FC = () => {
 
   return (
     <>
-      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-[#E1E8DF]/70 shadow-[0_2px_12px_rgba(23,32,22,0.03)] transition-all">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[76px] sm:min-h-[88px] py-2 flex items-center justify-between gap-4">
+      <header className="sticky top-0 z-40 bg-white/85 backdrop-blur-xl border-b border-[#E1E8DF]/70 shadow-[0_2px_12px_rgba(23,32,22,0.03)] transition-all">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 min-h-[58px] sm:min-h-[76px] md:min-h-[84px] py-1 sm:py-2 flex items-center justify-between gap-2 sm:gap-4">
           {/* Brand Logo */}
           <Logo size="md" />
 
@@ -210,7 +210,7 @@ export const Navbar: React.FC = () => {
 
             <Link
               href="/plan?tab=cars"
-              className="bg-[#50644E] hover:bg-[#3F503D] active:scale-95 text-white text-xs font-bold px-4 py-2 rounded-full transition-all duration-200 shadow-sm"
+              className="hidden sm:inline-flex bg-[#50644E] hover:bg-[#3F503D] active:scale-95 text-white text-xs font-bold px-4 py-2 rounded-full transition-all duration-200 shadow-sm"
             >
               Explore Fleet
             </Link>

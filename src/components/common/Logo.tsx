@@ -10,9 +10,9 @@ interface LogoProps {
 
 export const Logo: React.FC<LogoProps> = ({ className = "", size = "md" }) => {
   const dimensionSizes = {
-    sm: { width: 68, height: 68, className: "w-16 h-16" },
-    md: { width: 88, height: 88, className: "w-20 h-20 sm:w-[88px] sm:h-[88px]" },
-    lg: { width: 120, height: 120, className: "w-28 h-28 sm:w-30 sm:h-30" },
+    sm: { width: 52, height: 52, className: "w-10 h-10 sm:w-12 sm:h-12" },
+    md: { width: 88, height: 88, className: "w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20" },
+    lg: { width: 120, height: 120, className: "w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28" },
   };
 
   const { width, height, className: sizeClass } = dimensionSizes[size] || dimensionSizes.md;

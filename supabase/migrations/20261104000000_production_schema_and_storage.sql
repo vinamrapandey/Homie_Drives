@@ -369,3 +369,4 @@ USING (
         public.is_admin() OR (auth.uid()::text = (storage.foldername(name))[1])
     )
 );
+

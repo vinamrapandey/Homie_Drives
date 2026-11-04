@@ -149,7 +149,7 @@ export const CarImageCarousel: React.FC<CarImageCarouselProps> = ({
         )}
 
         {/* Floating Angle & Pagination Badge */}
-        <div className="absolute bottom-12 left-4 z-10 flex items-center gap-1.5 bg-black/60 backdrop-blur-md text-white px-3 py-1 rounded-full text-xs font-semibold shadow-sm">
+        <div className="absolute bottom-14 sm:bottom-16 left-4 z-10 flex items-center gap-1.5 bg-black/60 backdrop-blur-md text-white px-3 py-1 rounded-full text-xs font-semibold shadow-sm">
           <Camera className="w-3.5 h-3.5 text-emerald-400" />
           <span>{items[currentIndex]?.label}</span>
           <span className="text-white/60 ml-0.5">
@@ -159,7 +159,7 @@ export const CarImageCarousel: React.FC<CarImageCarouselProps> = ({
 
         {/* Pagination Dots (Mobbin style) */}
         {items.length > 1 && (
-          <div className="absolute bottom-12 right-4 z-10 flex items-center gap-1.5 bg-black/50 backdrop-blur-md px-2.5 py-1.5 rounded-full">
+          <div className="absolute bottom-14 sm:bottom-16 right-4 z-10 flex items-center gap-1.5 bg-black/50 backdrop-blur-md px-2.5 py-1.5 rounded-full">
             {items.map((_, idx) => (
               <button
                 key={idx}

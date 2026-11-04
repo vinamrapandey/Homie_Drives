@@ -343,8 +343,10 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/65 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="bg-white w-full max-w-xl rounded-[32px] p-5 sm:p-7 shadow-homie-lg border border-[#E1E8DF] relative max-h-[92vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/65 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="bg-white w-full sm:max-w-xl rounded-t-[32px] sm:rounded-[32px] p-4 sm:p-7 shadow-[0_-16px_48px_rgba(23,32,22,0.2)] sm:shadow-homie-lg border-t sm:border border-[#E1E8DF] relative max-h-[90vh] sm:max-h-[92vh] overflow-y-auto pb-[max(1.5rem,calc(1rem+env(safe-area-inset-bottom,0px)))] sm:pb-7">
+        {/* Mobile Drawer Grab Bar */}
+        <div className="w-12 h-1 bg-[#D4E0D1] rounded-full mx-auto mb-3 sm:hidden shrink-0" />
         {/* Header Bar with Step Progress */}
         <div className="flex items-center justify-between pb-3 mb-4 border-b border-[#F0F4ED]">
           <div className="flex items-center gap-2">
