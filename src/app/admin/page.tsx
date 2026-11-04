@@ -52,6 +52,8 @@ import { FastagTollEvent, TollPlazaDefinition } from "@/types/fastag";
 import { DELHI_NCR_TOLL_PLAZAS, INITIAL_FASTAG_EVENTS } from "@/data/fastagEvents";
 import { simulateFastagTollCrossingAction } from "@/actions/fastag";
 import { NotificationCenter } from "@/components/common/NotificationCenter";
+import { GoogleRegionalMap } from "@/components/map/GoogleRegionalMap";
+import { getGatewayIntegrationsStatus } from "@/lib/api";
 import { DELHI_NCR_LOCATIONS } from "@/data/locations";
 import { formatINR } from "@/lib/formatters";
 import { Car as CarType } from "@/types/car";
@@ -115,6 +117,8 @@ import {
   Radio,
   Unlock,
   ArrowRightCircle,
+  Repeat,
+  Wrench,
 } from "lucide-react";
 
 export default function MasterAdminPortalPage() {
@@ -2104,7 +2108,20 @@ export default function MasterAdminPortalPage() {
                             <div className="font-semibold text-[#172016]">
                               {b.pickupDate} → {b.returnDate}
                             </div>
-                            <div className="text-[10px] font-bold text-emerald-800">
+                            {b.isSubscription && (
+                              <div className="mt-1 flex flex-col gap-0.5">
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-[#50644E] text-white w-fit shadow-2xs">
+                                  <Repeat className="w-2.5 h-2.5" />
+                                  {b.planType === "quarterly" ? "Quarterly Lease (90d)" : "Monthly Subscription (30d)"}
+                                </span>
+                                {b.nextServiceDueDate && (
+                                  <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-[#3D4F3B] bg-[#EAF0E7] px-1.5 py-0.5 rounded w-fit border border-[#D5E2D1]">
+                                    <Wrench className="w-2.5 h-2.5 text-[#50644E]" /> Next Detailing: {b.nextServiceDueDate}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            <div className="text-[10px] font-bold text-emerald-800 mt-1">
                               Total: {formatINR(b.totalAmountINR)}
                             </div>
                             <div className="text-[10px] text-[#829280]">
@@ -2256,6 +2273,12 @@ export default function MasterAdminPortalPage() {
                 </button>
               </div>
             </div>
+
+            {/* Geographic Station Network & Corridor Visualizer */}
+            <GoogleRegionalMap
+              height="h-[320px] sm:h-[380px]"
+              showCorridors={true}
+            />
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {adminHubs.map((hub) => {
@@ -2901,6 +2924,69 @@ export default function MasterAdminPortalPage() {
                     </div>
                   );
                 })}
+              </div>
+            </div>
+
+            {/* Third-Party API Integrations & Gateway Inspector */}
+            <div className="pt-6 border-t border-[#E8EFE5] space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Radio className="w-4 h-4 text-[#50644E]" />
+                    <h4 className="text-sm font-bold text-[#172016]">
+                      Third-Party API Integrations &amp; Live Gateway Status
+                    </h4>
+                  </div>
+                  <p className="text-xs text-[#5C6B5A] mt-0.5">
+                    Live connection status for Google Maps, Govt. DigiLocker, Razorpay Escrow, and WhatsApp dispatch. When API keys are omitted in .env.local, Homie Drives operates deterministically in sandbox mode.
+                  </p>
+                </div>
+                <span className="text-[10px] font-mono bg-[#EAF0E7] text-[#3D4F3B] font-extrabold px-2.5 py-1 rounded-full border border-[#D5E2D1] shrink-0">
+                  Zero Hardcoded Secrets Policy
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {getGatewayIntegrationsStatus().map((gw) => (
+                  <div
+                    key={gw.service}
+                    className="p-4 rounded-2xl bg-[#F8FAF7] border border-[#E8EFE5] flex flex-col justify-between space-y-3"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#829280]">
+                          {gw.category.toUpperCase()}
+                        </span>
+                        <span
+                          className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full ${
+                            gw.status === "live"
+                              ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                              : "bg-amber-100 text-amber-900 border border-amber-300"
+                          }`}
+                        >
+                          {gw.status === "live" ? "LIVE API" : "SANDBOX MODE"}
+                        </span>
+                      </div>
+                      <h5 className="font-bold text-xs text-[#172016]">{gw.service}</h5>
+                      <p className="text-[11px] text-[#5C6B5A] mt-1 leading-snug">
+                        {gw.providerLabel}
+                      </p>
+                    </div>
+
+                    <div className="pt-2 border-t border-[#E8EFE5] text-[10px]">
+                      {gw.status === "live" ? (
+                        <span className="text-emerald-700 font-semibold flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" />
+                          <span>Connected via .env.local</span>
+                        </span>
+                      ) : (
+                        <span className="text-[#829280] font-mono">
+                          Ready for keys in .env.local
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>

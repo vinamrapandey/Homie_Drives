@@ -4,14 +4,17 @@ import React, { Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { TripsTab } from "@/components/plan/TripsTab";
 import { CarsTab } from "@/components/plan/CarsTab";
-import { Compass, Car } from "lucide-react";
+import { RegionalMapTab } from "@/components/plan/RegionalMapTab";
+import { Compass, Car, MapPin } from "lucide-react";
 
 function PlanContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const currentTab = searchParams.get("tab") === "cars" ? "cars" : "trips";
+  const tabParam = searchParams.get("tab");
+  const currentTab: "trips" | "map" | "cars" =
+    tabParam === "cars" ? "cars" : tabParam === "map" ? "map" : "trips";
 
-  const handleTabChange = (tab: "trips" | "cars") => {
+  const handleTabChange = (tab: "trips" | "map" | "cars") => {
     router.replace(`/plan?tab=${tab}`, { scroll: false });
   };
 
@@ -27,18 +30,18 @@ function PlanContent() {
             Let&apos;s take care of your journey
           </h1>
           <p className="text-xs sm:text-sm text-[#5C6B5A] mt-2.5 max-w-xl leading-relaxed">
-            This is your space to curate regional highway getaways, compare 3-tier vehicle condition rates, and coordinate seamless hub pickups.
+            This is your space to curate regional highway getaways, explore interactive handover stations, compare 3-tier vehicle condition rates, and coordinate seamless hub pickups.
           </p>
         </div>
       </div>
 
-      {/* Two Nested Tabs matching Ro pill switcher */}
-      <div className="flex items-center justify-start border-b border-[#E1E8DF] pb-3">
+      {/* Three Nested Tabs matching Ro pill switcher */}
+      <div className="flex items-center justify-start border-b border-[#E1E8DF] pb-3 overflow-x-auto no-scrollbar">
         <div className="inline-flex p-1 bg-white border border-[#DFE6DC] rounded-full shadow-2xs">
           <button
             type="button"
             onClick={() => handleTabChange("trips")}
-            className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
               currentTab === "trips"
                 ? "bg-[#50644E] text-white shadow-sm"
                 : "text-[#5C6B5A] hover:text-[#172016]"
@@ -50,22 +53,41 @@ function PlanContent() {
 
           <button
             type="button"
+            onClick={() => handleTabChange("map")}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
+              currentTab === "map"
+                ? "bg-[#50644E] text-white shadow-sm"
+                : "text-[#5C6B5A] hover:text-[#172016]"
+            }`}
+          >
+            <MapPin className="w-4 h-4" />
+            <span>Regional Map &amp; Hubs</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => handleTabChange("cars")}
-            className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
               currentTab === "cars"
                 ? "bg-[#50644E] text-white shadow-sm"
                 : "text-[#5C6B5A] hover:text-[#172016]"
             }`}
           >
             <Car className="w-4 h-4" />
-            <span>Fleet & Conditions</span>
+            <span>Fleet &amp; Conditions</span>
           </button>
         </div>
       </div>
 
       {/* Tab Panels */}
       <div>
-        {currentTab === "trips" ? <TripsTab /> : <CarsTab />}
+        {currentTab === "trips" ? (
+          <TripsTab />
+        ) : currentTab === "map" ? (
+          <RegionalMapTab />
+        ) : (
+          <CarsTab />
+        )}
       </div>
     </div>
   );

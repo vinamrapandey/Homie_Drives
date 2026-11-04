@@ -22,3 +22,4 @@ export interface HubAgentRecord {
   emergencyContact: string;
   joinedDate: string; // YYYY-MM-DD
 }
+

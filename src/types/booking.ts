@@ -79,6 +79,11 @@ export interface ActiveRentalPass {
   engineReady: boolean;
   batteryOrFuelLevel: number;
   fuelType: string;
+  planType?: "daily" | "monthly" | "quarterly" | string;
+  isSubscription?: boolean;
+  nextServiceDueDate?: string;
+  monthlyRenewalDate?: string;
+  replacementVehicleGuarantee?: boolean;
   createdAt: string;
 }
 

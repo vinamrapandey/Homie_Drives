@@ -23,3 +23,4 @@ export interface TollPlazaDefinition {
   expresswayCode: string;
   lanes: string[];
 }
+

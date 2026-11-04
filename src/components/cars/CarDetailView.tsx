@@ -628,7 +628,13 @@ export const CarDetailView: React.FC<CarDetailViewProps> = ({
           car={car}
           pickupDate={pickupDate}
           returnDate={returnDate}
-          totalINR={rentalPlan === "daily" ? pricing.total : monthlyDiscountedRate}
+          totalINR={
+            rentalPlan === "daily"
+              ? pricing.total
+              : rentalPlan === "quarterly"
+              ? quarterlyDiscountedRate
+              : monthlyDiscountedRate
+          }
           planType={rentalPlan}
           conditionTier={selectedConditionTier}
           conditionOption={activeConditionOption}

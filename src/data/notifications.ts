@@ -67,3 +67,4 @@ export const INITIAL_NOTIFICATIONS: AppNotification[] = [
     deliveryStatus: "read",
   },
 ];
+

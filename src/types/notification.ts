@@ -23,3 +23,4 @@ export interface AppNotification {
   href?: string;
   deliveryStatus: DeliveryStatus;
 }
+

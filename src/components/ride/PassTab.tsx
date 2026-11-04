@@ -41,6 +41,7 @@ import {
   Receipt,
   FileText,
   Activity,
+  Repeat,
 } from "lucide-react";
 
 export const PassTab: React.FC = () => {
@@ -318,9 +319,45 @@ export const PassTab: React.FC = () => {
                     <span className="text-[10px] font-semibold bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded-md border border-emerald-100">
                       {activePass.protectionPlanName}
                     </span>
+                    {activePass.isSubscription && (
+                      <span className="text-[10px] font-extrabold bg-[#50644E] text-white px-2 py-0.5 rounded-md shadow-2xs">
+                        Flexible Subscription
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
+
+              {/* Multi-Month Flexible Subscription Status Banner */}
+              {activePass.isSubscription && (
+                <div className="bg-[#172016] text-white p-4 rounded-2xl border border-[#2D3A2B] space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Repeat className="w-3.5 h-3.5 text-emerald-400" />
+                      <span className="text-xs font-bold uppercase tracking-wider text-white">
+                        {activePass.planType === "quarterly" ? "Quarterly Lease (90-Day)" : "Flexible 30-Day Subscription"}
+                      </span>
+                    </div>
+                    <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-extrabold px-2 py-0.5 rounded-full border border-emerald-500/30">
+                      Active Cycle
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] text-white/80 pt-1 border-t border-white/10">
+                    <div>
+                      <span className="text-[10px] text-[#A2BA9F] block">Next Free Detailing</span>
+                      <strong className="text-white">{activePass.nextServiceDueDate || "Scheduled in 30 Days"}</strong>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-[#A2BA9F] block">Mobility Guarantee</span>
+                      <strong className="text-emerald-300">4-Hour Replacement SLA</strong>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-[#A2BA9F] block">Monthly Quota</span>
+                      <strong className="text-white">3,000 km (Rollover Active)</strong>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Booking Reference & Handover QR Code Box */}
               <div className="bg-[#F8FAF7] rounded-2xl p-4 sm:p-5 border border-[#E8EFE5] flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">

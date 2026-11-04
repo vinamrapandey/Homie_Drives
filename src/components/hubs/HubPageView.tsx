@@ -7,6 +7,7 @@ import { LocationHub } from "@/types/booking";
 import { Car as CarType } from "@/types/car";
 import { DELHI_NCR_LOCATIONS } from "@/data/locations";
 import { formatINR } from "@/lib/formatters";
+import { GoogleRegionalMap } from "@/components/map/GoogleRegionalMap";
 import {
   MapPin,
   Navigation,
@@ -235,6 +236,15 @@ export default function HubPageView({ hub, cars }: HubPageViewProps) {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Interactive Station Location & Access Map */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-8">
+        <GoogleRegionalMap
+          selectedHubId={hub.id}
+          height="h-[320px] sm:h-[380px]"
+          showCorridors={false}
+        />
       </div>
 
       {/* Fleet Inventory Section at this Hub */}

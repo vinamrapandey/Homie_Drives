@@ -100,3 +100,4 @@ export async function simulateFastagTollCrossingAction(input: SimulateTollInput)
     };
   }
 }
+

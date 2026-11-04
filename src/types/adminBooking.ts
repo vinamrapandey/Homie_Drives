@@ -41,6 +41,10 @@ export interface AdminBookingRecord {
   pickupOtp: string;
   assignedAgent: string;
   createdAt: string;
+  planType?: "daily" | "monthly" | "quarterly" | string;
+  isSubscription?: boolean;
+  nextServiceDueDate?: string;
+  monthlyRenewalDate?: string;
   preHandoverInspection?: BookingInspectionData;
   returnInspection?: BookingInspectionData;
 }

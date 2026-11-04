@@ -109,3 +109,4 @@ export const INITIAL_FASTAG_EVENTS: FastagTollEvent[] = [
     readerId: "NETC-READER-DSN-02X",
   },
 ];
+

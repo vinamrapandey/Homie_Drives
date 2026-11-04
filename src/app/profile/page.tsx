@@ -45,13 +45,22 @@ import {
   BadgeAlert,
   ArrowRight,
   Check,
+  Copy,
+  QrCode,
+  Calendar,
 } from "lucide-react";
 
 export default function ProfilePage() {
   const router = useRouter();
   const [activeSubSection, setActiveSubSection] = useState<
-    "overview" | "rentals" | "documents" | "support" | "settings"
+    "overview" | "rentals" | "vault" | "documents" | "support" | "settings"
   >("overview");
+  const [copiedDl, setCopiedDl] = useState(false);
+  const handleCopyDl = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedDl(true);
+    setTimeout(() => setCopiedDl(false), 2000);
+  };
   const activePass = useActivePass();
   const [showKycModal, setShowKycModal] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -449,7 +458,8 @@ export default function ProfilePage() {
       <div className="flex items-center gap-2 overflow-x-auto no-scrollbar border-b border-[#E1E8DF] pb-2 text-xs font-bold">
         {[
           { id: "overview", label: "My Rentals" },
-          { id: "documents", label: "Rental Documents" },
+          { id: "vault", label: "DigiLocker Document Vault" },
+          { id: "documents", label: "Rental Agreements & Terms" },
           { id: "support", label: "Help & 24x7 Roadside" },
           { id: "settings", label: "Preferences & Security" },
         ].map((tab) => (
@@ -756,6 +766,284 @@ export default function ProfilePage() {
                 <span>GST Tax Invoice</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* SECTION: DIGILOCKER DOCUMENT VAULT */}
+      {activeSubSection === "vault" && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          {/* Header Bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-[#50644E]" />
+                <h3 className="text-lg font-black text-[#172016] tracking-tight">
+                  Verified Identity &amp; Government Credentials
+                </h3>
+              </div>
+              <p className="text-xs text-[#5C6B5A] mt-0.5">
+                MoRTH Sarathi &amp; UIDAI DigiLocker integration enables keyless, zero-contact self-drive dispatch across Delhi NCR.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleStartDigiLocker}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-[#50644E] hover:bg-[#3F503D] transition-colors shadow-2xs cursor-pointer"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Re-authenticate DigiLocker</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Smart Card Display Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* 1. Indian Driving License Digital Smart Card */}
+            <div className="bg-gradient-to-br from-[#172016] via-[#243322] to-[#172016] text-white p-6 rounded-[28px] shadow-homie border border-white/10 space-y-4 relative overflow-hidden flex flex-col justify-between">
+              {/* Gold Chip & Emblem Header */}
+              <div>
+                <div className="flex items-center justify-between border-b border-white/15 pb-3">
+                  <div>
+                    <span className="text-[10px] text-[#A2BA9F] uppercase font-bold tracking-wider block">
+                      Govt. of NCT of Delhi • Transport Dept
+                    </span>
+                    <span className="text-sm font-black tracking-wide text-white">
+                      INDIAN DRIVING LICENSE (SMART CARD)
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-extrabold px-2 py-0.5 rounded-full border border-emerald-500/30">
+                      {customerKyc.drivingLicense.vehicleClasses[0] || "LMV-NT"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* EMV Microchip Graphic */}
+                <div className="my-3 flex items-center justify-between">
+                  <div className="w-10 h-7 rounded-md bg-gradient-to-br from-amber-200 via-amber-400 to-amber-600 border border-amber-300/80 shadow-xs flex items-center justify-center p-0.5">
+                    <div className="w-full h-full border border-amber-700/40 rounded-2xs grid grid-cols-2 gap-0.5 opacity-80" />
+                  </div>
+                  <span className="text-[10px] text-white/50 font-mono tracking-widest uppercase">
+                    Sarathi 4.0 Authenticated
+                  </span>
+                </div>
+
+                {/* DL Details */}
+                <div className="space-y-2 text-xs">
+                  <div>
+                    <span className="text-[10px] text-white/50 block">Driving License Number</span>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="font-mono font-black text-base text-emerald-300 tracking-wide">
+                        {customerKyc.drivingLicense.dlNumber}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyDl(customerKyc.drivingLicense.dlNumber)}
+                        className="p-1 rounded text-white/60 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                        title="Copy DL Number"
+                      >
+                        {copiedDl ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 pt-1 text-[11px]">
+                    <div>
+                      <span className="text-[10px] text-white/50 block">Licensee Full Name</span>
+                      <strong className="text-white text-xs">{customerKyc.fullName}</strong>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-white/50 block">Authorized Classes</span>
+                      <span className="text-white font-medium">
+                        {customerKyc.drivingLicense.vehicleClasses.join(", ")}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-white/50 block">Issuing Authority (RTO)</span>
+                      <span className="text-white text-[11px] leading-tight">
+                        {customerKyc.drivingLicense.issuingRTO}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-white/50 block">Valid Until</span>
+                      <span className="text-emerald-300 font-bold">
+                        {customerKyc.drivingLicense.expiryDate} (Active)
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom Security Footer */}
+              <div className="pt-3 border-t border-white/10 flex items-center justify-between text-[10px] text-white/60">
+                <span className="flex items-center gap-1 text-emerald-400 font-bold">
+                  <CheckCircle className="w-3.5 h-3.5" />
+                  <span>DigiLocker MoRTH Verified</span>
+                </span>
+                <span className="font-mono text-white/50">HMAC-SHA256 Match</span>
+              </div>
+            </div>
+
+            {/* 2. UIDAI Masked Aadhaar Digital Credential */}
+            <div className="bg-white p-6 rounded-[28px] shadow-sm border border-[#E8EFE5] space-y-4 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between border-b border-[#F0F4ED] pb-3">
+                  <div>
+                    <span className="text-[10px] text-[#829280] uppercase font-bold tracking-wider block">
+                      Unique Identification Authority of India
+                    </span>
+                    <span className="text-sm font-black tracking-wide text-[#172016]">
+                      AADHAAR IDENTITY VERIFICATION
+                    </span>
+                  </div>
+                  <span className="text-[10px] bg-[#EAF0E7] text-[#50644E] font-extrabold px-2 py-0.5 rounded-full border border-[#D5E2D1]">
+                    UIDAI Authenticated
+                  </span>
+                </div>
+
+                <div className="my-3 p-3 bg-[#F8FAF7] rounded-xl border border-[#E8EFE5] space-y-1">
+                  <span className="text-[10px] font-bold text-[#829280] uppercase tracking-wider block">
+                    Masked Aadhaar Number
+                  </span>
+                  <div className="font-mono font-black text-lg text-[#172016] tracking-wider">
+                    {customerKyc.aadhaar.maskedNumber}
+                  </div>
+                  <p className="text-[10px] text-[#5C6B5A]">
+                    Privacy First: Only last 4 digits are cryptographically reconciled. Zero raw UID stored.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-[10px] text-[#829280] block">Date of Birth &amp; Age</span>
+                    <strong className="text-[#172016]">
+                      {customerKyc.aadhaar.dob} ({customerKyc.aadhaar.age} Years)
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-[#829280] block">Age Eligibility Check</span>
+                    <span className="inline-flex items-center gap-1 text-emerald-700 font-bold">
+                      <CheckCircle className="w-3 h-3" />
+                      <span>23+ Luxury Qualified</span>
+                    </span>
+                  </div>
+                  <div className="col-span-2 pt-1">
+                    <span className="text-[10px] text-[#829280] block">Permanent NCR Address</span>
+                    <span className="text-[#172016] text-[11px]">
+                      {customerKyc.aadhaar.address}, {customerKyc.aadhaar.city} - {customerKyc.aadhaar.pincode}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-[#F0F4ED] flex items-center justify-between text-[11px] text-[#5C6B5A]">
+                <span>Self-Drive Authorization:</span>
+                <span className="font-bold text-emerald-800">Unrestricted Delhi NCR</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Physical Document Capture / Camera Photo Backup */}
+          <div className="bg-white rounded-[28px] p-6 border border-[#E8EFE5] shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h4 className="text-sm font-bold text-[#172016] flex items-center gap-2">
+                  <Camera className="w-4 h-4 text-[#50644E]" />
+                  <span>Physical Driving License Photo (On-File Inspection Backup)</span>
+                </h4>
+                <p className="text-xs text-[#5C6B5A] mt-0.5">
+                  High-resolution photo retained for instantaneous optical matching by hub agents during keyless handover.
+                </p>
+              </div>
+
+              {userDlImage || customerKyc.drivingLicense.cardImageUrl ? (
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full border border-emerald-300">
+                  <CheckCircle className="w-3 h-3" />
+                  <span>Document Stored Securely</span>
+                </span>
+              ) : null}
+            </div>
+
+            {userDlImage || customerKyc.drivingLicense.cardImageUrl ? (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center">
+                <div className="sm:col-span-2 relative rounded-2xl overflow-hidden border border-[#CAD8C6] bg-black/5 aspect-video max-h-48 flex items-center justify-center">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={userDlImage || customerKyc.drivingLicense.cardImageUrl || ""}
+                    alt="Physical Driver License"
+                    className="w-full h-full object-contain"
+                  />
+                  <div className="absolute top-2 right-2 bg-black/70 text-white text-[10px] font-mono px-2 py-0.5 rounded-full backdrop-blur-xs">
+                    DIGILOCKER SYNCED
+                  </div>
+                </div>
+
+                <div className="space-y-2.5">
+                  <label className="w-full py-2.5 px-3 rounded-xl border border-[#CAD8C6] hover:bg-[#F3F6F1] text-xs font-bold text-[#50644E] transition-colors flex items-center justify-center gap-1.5 cursor-pointer text-center">
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Upload New Photo</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleDlImageFile}
+                      className="hidden"
+                    />
+                  </label>
+                  <p className="text-[10px] text-[#829280] leading-relaxed">
+                    Accepted: JPG, PNG, WEBP. Front-facing clear photo with visible RTO stamp and watermark.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <label className="border-2 border-dashed border-[#CFD8CD] hover:border-[#50644E] hover:bg-[#F8FAF7] rounded-2xl p-6 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors text-center">
+                <div className="w-10 h-10 rounded-full bg-[#EAF0E7] text-[#50644E] flex items-center justify-center">
+                  <Upload className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="text-xs font-bold text-[#172016] block">
+                    Upload Physical Driving License Photo
+                  </span>
+                  <span className="text-[11px] text-[#829280]">
+                    Drag &amp; drop or click to browse • Automatically encrypted &amp; stored to your profile
+                  </span>
+                </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleDlImageFile}
+                  className="hidden"
+                />
+              </label>
+            )}
+          </div>
+
+          {/* Compliance & Regulatory Guarantees Notice */}
+          <div className="p-4 bg-[#F8FAF7] rounded-2xl border border-[#DFE6DC] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-[#5C6B5A]">
+            <div className="flex items-start gap-2">
+              <Lock className="w-4 h-4 text-[#50644E] shrink-0 mt-0.5" />
+              <div>
+                <strong className="text-[#172016] block">
+                  Digital Personal Data Protection (DPDP) Act 2023 Compliant
+                </strong>
+                <span>
+                  All driving licenses and identity documents are encrypted end-to-end and strictly accessed for booking compliance and insurance coverage in Delhi NCR.
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => alert("Verification Certificate: Authenticated by Homie Drives Fleet Operations via MoRTH Sarathi Gateway.")}
+              className="text-[#50644E] font-bold hover:underline shrink-0 text-xs"
+            >
+              Download Verification Certificate →
+            </button>
           </div>
         </div>
       )}

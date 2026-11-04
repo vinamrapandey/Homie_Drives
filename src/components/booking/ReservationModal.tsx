@@ -34,6 +34,9 @@ import {
   Camera,
   FileCheck,
   Eye,
+  Repeat,
+  Wrench,
+  Sparkles,
 } from "lucide-react";
 
 function getHubSlugFromLocation(location: string, carHubSlug?: string): string {
@@ -98,6 +101,30 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
   // Rental days
   const days = Math.max(1, calculateRentalDays(pickupDate, returnDate));
 
+  // Determine if this is a multi-month flexible subscription
+  const isSubscription =
+    planType === "monthly" ||
+    planType === "quarterly" ||
+    planType?.toLowerCase().includes("month") ||
+    planType?.toLowerCase().includes("quarter") ||
+    planType?.toLowerCase().includes("sub") ||
+    days >= 28;
+
+  // Calculate 30-day scheduled detailing & renewal dates
+  const calculatedServiceDate = React.useMemo(() => {
+    try {
+      const p = new Date(pickupDate || Date.now());
+      p.setDate(p.getDate() + 30);
+      return p.toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
+    } catch {
+      return "15-Dec-2026";
+    }
+  }, [pickupDate]);
+
   // Determine active condition option
   const activeCondition =
     conditionOption ||
@@ -110,7 +137,14 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
     DEFAULT_PROTECTION_PLANS[1];
 
   // Compute total with protection and optional FASTag wallet
-  const protectionCost = activeProtection.dailyRateINR * days;
+  // For monthly subscriptions, protection is a bundled flat monthly care fee
+  const protectionCost = isSubscription
+    ? activeProtection.id === "basic"
+      ? 0
+      : activeProtection.id === "premium"
+      ? 4999
+      : 8999
+    : activeProtection.dailyRateINR * days;
   const fastagBufferCost = isFastagWalletLinked ? 1000 : 0;
   const calculatedGrandTotal = totalINR + protectionCost + fastagBufferCost;
 
@@ -290,6 +324,15 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
       engineReady: true,
       batteryOrFuelLevel: car.telematicsStatus?.fuelOrBatteryPercent ?? 95,
       fuelType: car.specs?.fuelType || "Petrol",
+      planType: isSubscription
+        ? planType === "quarterly" || days >= 75
+          ? "quarterly"
+          : "monthly"
+        : planType || "daily",
+      isSubscription,
+      nextServiceDueDate: isSubscription ? calculatedServiceDate : undefined,
+      monthlyRenewalDate: isSubscription ? calculatedServiceDate : undefined,
+      replacementVehicleGuarantee: isSubscription ? true : undefined,
       createdAt: new Date().toISOString(),
     };
 
@@ -407,6 +450,62 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
               </div>
             </div>
 
+            {/* Flexible Multi-Month Subscription Inclusions & Guarantees Banner */}
+            {isSubscription && (
+              <div className="bg-[#172016] text-white p-4 rounded-2xl border border-[#2D3A2B] space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-white/10">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span className="text-xs font-bold text-white uppercase tracking-wider">
+                      Homie Subscription Privileges &amp; Guarantees
+                    </span>
+                  </div>
+                  <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-extrabold px-2 py-0.5 rounded-full border border-emerald-500/30">
+                    {planType === "quarterly" ? "Quarterly Lease (90d)" : "Flexible 30-Day Auto-Renew"}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-[11px]">
+                  <div className="flex items-start gap-2">
+                    <Wrench className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                    <div>
+                      <strong className="text-white block">Doorstep 30-Day Detailing</strong>
+                      <span className="text-white/70">Complimentary health check &amp; dry wash at your address</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-2">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                    <div>
+                      <strong className="text-white block">4-Hour Replacement SLA</strong>
+                      <span className="text-white/70">Immediate equivalent vehicle delivery during any downtime</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-2">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                    <div>
+                      <strong className="text-white block">3,000 km Monthly Cap</strong>
+                      <span className="text-white/70">Unused kilometers roll over into next month</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-2">
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                    <div>
+                      <strong className="text-white block">Zero Maintenance &amp; Tax</strong>
+                      <span className="text-white/70">Insurance, consumables &amp; Delhi NCR road tax included</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[10px] text-white/60">
+                  <span>Next Scheduled Health Check: <strong className="text-emerald-300">{calculatedServiceDate}</strong></span>
+                  <span className="text-emerald-300">7-Day Penalty-Free Exit</span>
+                </div>
+              </div>
+            )}
+
             {/* Damage Protection Plans Header */}
             <div>
               <div className="flex items-center justify-between mb-2">
@@ -420,6 +519,16 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
               <div className="space-y-2">
                 {DEFAULT_PROTECTION_PLANS.map((plan) => {
                   const isSelected = selectedPlanId === plan.id;
+                  const planCostLabel = isSubscription
+                    ? plan.id === "basic"
+                      ? "Included Free"
+                      : plan.id === "premium"
+                      ? "+₹4,999/mo"
+                      : "+₹8,999/mo"
+                    : plan.dailyRateINR === 0
+                    ? "Included"
+                    : `+${formatINR(plan.dailyRateINR)}/d`;
+
                   return (
                     <div
                       key={plan.id}
@@ -461,7 +570,7 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
 
                         <div className="text-right">
                           <span className="font-extrabold text-xs text-[#172016]">
-                            {plan.dailyRateINR === 0 ? "Included" : `+${formatINR(plan.dailyRateINR)}/d`}
+                            {planCostLabel}
                           </span>
                         </div>
                       </div>
@@ -483,7 +592,9 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
             {/* Price Preview */}
             <div className="pt-2 border-t border-[#F0F4ED] flex items-center justify-between text-xs sm:text-sm">
               <span className="text-[#5C6B5A]">
-                Estimated Quote ({days} {days === 1 ? "day" : "days"} + {activeProtection.name}):
+                {isSubscription
+                  ? `First Cycle Total (${planType === "quarterly" ? "Quarterly Lease" : "30 Days"} + ${activeProtection.name}):`
+                  : `Estimated Quote (${days} ${days === 1 ? "day" : "days"} + ${activeProtection.name}):`}
               </span>
               <span className="font-black text-lg text-[#172016]">
                 {formatINR(totalINR + protectionCost)}
@@ -734,6 +845,34 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
             =================================================================== */}
         {step === 3 && (
           <div className="space-y-4">
+            {/* Flexible Recurring Subscription Billing Schedule Card */}
+            {isSubscription && (
+              <div className="bg-[#F3F7F2] border border-[#CAD8C6] p-3.5 rounded-2xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-[#172016]">
+                    <Repeat className="w-3.5 h-3.5 text-[#50644E]" />
+                    <span>Flexible Recurring Billing Schedule</span>
+                  </div>
+                  <span className="text-[10px] bg-[#50644E] text-white font-extrabold px-2 py-0.5 rounded-full">
+                    {planType === "quarterly" ? "Quarterly Installment" : "30-Day Cycle"}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-[11px] text-[#5C6B5A]">
+                  <div>
+                    <span className="text-[10px] text-[#829280] block">First Installment Due Now</span>
+                    <strong className="text-[#172016] text-xs font-mono">{formatINR(calculatedGrandTotal)}</strong>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-[#829280] block">Next Auto-Renewal Date</span>
+                    <strong className="text-[#50644E] text-xs font-semibold">{calculatedServiceDate}</strong>
+                  </div>
+                </div>
+                <p className="text-[10px] text-[#5C6B5A] pt-1 border-t border-[#DDE7DA]">
+                  Cancel or swap vehicle anytime with 7 days advance notice. Zero early-exit penalty after initial 30 days.
+                </p>
+              </div>
+            )}
+
             {/* Payment Mode Selector */}
             <div>
               <h3 className="text-xs font-bold text-[#5C6B5A] uppercase tracking-wider mb-2">
@@ -835,11 +974,19 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
             {/* Itemized Final Quote */}
             <div className="space-y-1.5 bg-[#F8FAF7] p-3.5 rounded-2xl border border-[#E8EFE5] text-xs">
               <div className="flex justify-between text-[#5C6B5A]">
-                <span>Base Hire ({days}d × {activeCondition?.label}):</span>
+                <span>
+                  {isSubscription
+                    ? `First Month Commitment (${activeCondition?.label}):`
+                    : `Base Hire (${days}d × ${activeCondition?.label}):`}
+                </span>
                 <span>{formatINR(totalINR)}</span>
               </div>
               <div className="flex justify-between text-[#5C6B5A]">
-                <span>{activeProtection.name} ({days}d):</span>
+                <span>
+                  {isSubscription
+                    ? `${activeProtection.name} (Monthly Care):`
+                    : `${activeProtection.name} (${days}d):`}
+                </span>
                 <span>{formatINR(protectionCost)}</span>
               </div>
               {isFastagWalletLinked && (
@@ -849,7 +996,9 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
                 </div>
               )}
               <div className="pt-2 border-t border-[#E8EFE5] flex justify-between text-sm">
-                <strong className="text-[#172016]">Total Payable:</strong>
+                <strong className="text-[#172016]">
+                  {isSubscription ? "First Cycle Payable:" : "Total Payable:"}
+                </strong>
                 <strong className="text-base text-[#172016]">{formatINR(calculatedGrandTotal)}</strong>
               </div>
             </div>
@@ -864,7 +1013,15 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
                   className="mt-0.5 w-4 h-4 text-[#50644E] rounded border-gray-300 focus:ring-[#50644E]"
                 />
                 <span className="leading-snug">
-                  I accept the <strong>Homie Drives Delhi NCR Master Rental Agreement</strong>, agree to return the car to <strong>{car.hubLocation}</strong>, and consent to pre-trip 360° walk-around video logging.
+                  {isSubscription ? (
+                    <>
+                      I accept the <strong>Homie Drives Delhi NCR Flexible Multi-Month Subscription Agreement</strong>, agree to the 30-day recurring installment cycle, 7-day termination notice, return to <strong>{car.hubLocation}</strong>, and consent to periodic 30-day doorstep health check-ins.
+                    </>
+                  ) : (
+                    <>
+                      I accept the <strong>Homie Drives Delhi NCR Master Rental Agreement</strong>, agree to return the car to <strong>{car.hubLocation}</strong>, and consent to pre-trip 360° walk-around video logging.
+                    </>
+                  )}
                 </span>
               </label>
             </div>
@@ -958,15 +1115,22 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
               <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
                 <div>
                   <span className="text-[10px] font-bold text-[#A2BA9F] uppercase tracking-wider block">
-                    Verified Digital Pass
+                    {issuedPass?.isSubscription ? "Flexible Subscription Pass" : "Verified Digital Pass"}
                   </span>
                   <span className="font-mono text-xs text-white font-bold">
                     {issuedPass?.bookingRef || "#HD-DEL-8924"}
                   </span>
                 </div>
-                <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-2 py-0.5 rounded-full border border-emerald-500/30">
-                  FASTAG LINKED
-                </span>
+                <div className="flex items-center gap-1.5">
+                  {issuedPass?.isSubscription && (
+                    <span className="text-[10px] bg-[#50644E] text-white font-extrabold px-2 py-0.5 rounded-full border border-emerald-400/40">
+                      30D AUTO-RENEW
+                    </span>
+                  )}
+                  <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-2 py-0.5 rounded-full border border-emerald-500/30">
+                    FASTAG LINKED
+                  </span>
+                </div>
               </div>
 
               <div className="flex items-center justify-between gap-3">
@@ -987,6 +1151,18 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
                   <QrCode className="w-14 h-14 text-[#172016]" />
                 </div>
               </div>
+
+              {issuedPass?.isSubscription && (
+                <div className="bg-emerald-950/40 border border-emerald-500/30 rounded-xl p-2.5 text-[11px] text-emerald-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5">
+                  <span className="flex items-center gap-1.5 font-bold text-white">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Next Detailing: {issuedPass.nextServiceDueDate || calculatedServiceDate}</span>
+                  </span>
+                  <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-2 py-0.5 rounded border border-emerald-500/30">
+                    4-Hr Replacement Guarantee
+                  </span>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/10 text-xs">
                 <div>
